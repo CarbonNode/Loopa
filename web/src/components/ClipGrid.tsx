@@ -5,6 +5,7 @@ import { useDebounced, useInfiniteScroll } from '../hooks/index.ts';
 import { useApp, useFavoriteToggle } from '../state/store.tsx';
 import { ClipCard } from './ClipCard.tsx';
 import { EmptyState } from './EmptyState.tsx';
+import { PendingCard } from './PendingCard.tsx';
 import './ClipGrid.css';
 
 const PAGE_SIZE = 60;
@@ -18,7 +19,36 @@ export function ClipGrid() {
     clearSelection,
     openClip,
     categories,
+    status,
+    refreshStatus,
+    notify,
+    reportError,
   } = useApp();
+
+  /**
+   * In-flight downloads, shown as placeholder cards at the top of the grid.
+   *
+   * Hidden while a filter is active: a queued download has no title, tags or
+   * category yet, so it cannot honestly be said to match a search or belong
+   * to the category you are looking at.
+   */
+  const filtering = Boolean(
+    filters.query.trim() || filters.categoryId || filters.tagId || filters.favorites || filters.kind,
+  );
+  const pending = filtering ? [] : (status?.pendingImports ?? []);
+
+  const cancelPending = useCallback(
+    (jobId: number) => {
+      void api
+        .cancelImport(jobId)
+        .then(() => {
+          void refreshStatus();
+          notify({ kind: 'info', message: 'Download cancelled.' });
+        })
+        .catch((error: unknown) => reportError(error, 'Could not cancel that download.'));
+    },
+    [refreshStatus, notify, reportError],
+  );
 
   const [clips, setClips] = useState<Clip[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -143,6 +173,9 @@ export function ClipGrid() {
   if (loading) {
     return (
       <div className="clip-grid" aria-busy="true" aria-label="Loading clips">
+        {pending.map((item) => (
+          <PendingCard key={`pending-${item.jobId}`} item={item} onCancel={cancelPending} />
+        ))}
         {Array.from({ length: 12 }, (_, index) => (
           <div key={index} className="clip-grid__skeleton">
             <div className="clip-grid__skeleton-media skeleton" />
@@ -164,6 +197,18 @@ export function ClipGrid() {
         body={failed}
         action={{ label: 'Try again', run: () => void load({ append: false }) }}
       />
+    );
+  }
+
+  // Downloads in flight but nothing in the library yet — show the
+  // placeholders rather than an empty state that contradicts them.
+  if (clips.length === 0 && pending.length > 0) {
+    return (
+      <div className="clip-grid">
+        {pending.map((item) => (
+          <PendingCard key={`pending-${item.jobId}`} item={item} onCancel={cancelPending} />
+        ))}
+      </div>
     );
   }
 
@@ -210,6 +255,9 @@ export function ClipGrid() {
   return (
     <>
       <div className="clip-grid" onClick={handleBackgroundClick}>
+        {pending.map((item) => (
+          <PendingCard key={`pending-${item.jobId}`} item={item} onCancel={cancelPending} />
+        ))}
         {clips.map((clip) => (
           <ClipCard
             key={clip.id}

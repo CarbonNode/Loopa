@@ -17,7 +17,10 @@ const { chromium } = playwright;
 const BASE = process.argv[2] ?? 'http://127.0.0.1:8099';
 const OUT = process.argv[3] ?? '/tmp/loopa-shots';
 
-const CREDENTIALS = { username: 'dave', password: 'correct-horse-battery' };
+const CREDENTIALS = {
+  username: process.env.LOOPA_AUDIT_USER ?? 'admin',
+  password: process.env.LOOPA_AUDIT_PASSWORD ?? 'wkomstu95@',
+};
 
 const VIEWPORTS = [
   { name: 'mobile-360', width: 360, height: 780 },

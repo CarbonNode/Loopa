@@ -314,6 +314,14 @@
     height: 26px;
   }
 
+  /* Negative margin keeps the enlarged hit area from spacing out the meta
+     row it sits in. */
+  .lightbox__source {
+    display: inline-block;
+    padding: var(--space-1) var(--space-2);
+    margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+  }
+
   .lightbox__tag,
   .lightbox__category {
     min-height: 28px;

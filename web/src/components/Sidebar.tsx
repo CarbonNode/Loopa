@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
-import type { Category } from '../api/types.ts';
+import type { Category, ClipKind } from '../api/types.ts';
 import { useApp } from '../state/store.tsx';
 import { formatCount } from '../utils/format.ts';
 import './Sidebar.css';
@@ -16,6 +16,19 @@ function readDraggedClips(event: React.DragEvent): string[] {
     return [];
   }
 }
+
+/**
+ * Media-type filter options.
+ *
+ * A refinement rather than a destination: it intersects with whatever view is
+ * already open, so "the GIFs in Bangers" is one click from "Bangers".
+ */
+const KIND_FILTERS: ReadonlyArray<{ value: ClipKind | null; label: string; hint: string }> = [
+  { value: null, label: 'All', hint: 'Everything in the library' },
+  { value: 'video', label: 'Video', hint: 'Videos only' },
+  { value: 'gif', label: 'GIF', hint: 'GIFs only' },
+  { value: 'image', label: 'Image', hint: 'Images and screenshots only' },
+];
 
 export function Sidebar() {
   const {
@@ -232,6 +245,28 @@ export function Sidebar() {
               </button>
             </li>
           </ul>
+
+          {/* Deliberately not a nav row: this narrows the current view instead
+              of replacing it, so it must not look like another destination.
+              It also stays open on mobile — you often set a type and then pick
+              a category, and closing the drawer between the two is hostile. */}
+          <div className="sidebar__kinds" role="group" aria-label="Filter by media type">
+            {KIND_FILTERS.map((option) => {
+              const active = filters.kind === option.value;
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  className={`sidebar__kind${active ? ' is-active' : ''}`}
+                  onClick={() => setFilters({ kind: option.value })}
+                  aria-pressed={active}
+                  title={option.hint}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         <div className="sidebar__section sidebar__section--grow">

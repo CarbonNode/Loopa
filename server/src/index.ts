@@ -12,7 +12,7 @@ import { closeDatabase, runMaintenance, runMigrations } from './db/index.ts';
 import { ensureStarterCategories, jobHandlers } from './jobs/handlers.ts';
 import { WorkerPool } from './jobs/queue.ts';
 import { absolutePath, assertInsideMediaDir } from './media/storage.ts';
-import { IngestError } from './media/urlingest.ts';
+import { IngestError, ytDlpBinary } from './media/urlingest.ts';
 import { announceSetupIfNeeded, registerAuthRoutes } from './http/routes/auth.ts';
 import { registerAdminRoutes } from './http/routes/admin.ts';
 import { registerCategoryRoutes } from './http/routes/categories.ts';
@@ -206,17 +206,21 @@ async function main(): Promise<void> {
   // Check the external tools at boot rather than at first use: a missing
   // ffmpeg should be an obvious startup warning, not a mystifying failure on
   // someone's first upload.
-  const [hasFfmpeg, hasFfprobe, hasYtDlp] = await Promise.all([
+  const [hasFfmpeg, hasFfprobe, ytDlp] = await Promise.all([
     commandExists('ffmpeg', '-version'),
     commandExists('ffprobe', '-version'),
-    commandExists('yt-dlp'),
+    // Not commandExists: yt-dlp is frequently outside the PATH a service
+    // inherits, so this resolves it the same way the ingest code does.
+    ytDlpBinary(),
   ]);
 
   if (!hasFfmpeg || !hasFfprobe) {
     app.log.error('ffmpeg/ffprobe not found on PATH — clips cannot be processed. Install ffmpeg.');
   }
-  if (!hasYtDlp && config.enableUrlIngest) {
-    app.log.warn('yt-dlp not found on PATH — importing from links is disabled. Install yt-dlp.');
+  if (!ytDlp && config.enableUrlIngest) {
+    app.log.warn(
+      'yt-dlp not found — importing from links is disabled. Install it (pip install yt-dlp) or set YTDLP_PATH.',
+    );
   }
   if (config.sessionSecretGenerated) {
     app.log.warn('SESSION_SECRET is unset; using a generated one from data/.session-secret. Set it explicitly in .env.');

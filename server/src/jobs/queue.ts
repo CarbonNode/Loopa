@@ -254,6 +254,76 @@ export function jobStats(): Record<JobStatus, number> {
   return stats;
 }
 
+export type PendingImport = {
+  jobId: number;
+  url: string;
+  status: JobStatus;
+  attempts: number;
+  maxAttempts: number;
+  lastError: string | null;
+  /** When a retry is scheduled, so the UI can say "retrying shortly". */
+  runAfter: number;
+  createdAt: number;
+};
+
+/**
+ * Downloads that are queued, running, or waiting to retry.
+ *
+ * A URL import creates no clip row until yt-dlp finishes, so without this the
+ * grid shows nothing at all between pasting a link and the clip appearing —
+ * which reads as "it didn't work". The UI renders a placeholder card per
+ * entry.
+ */
+export function pendingImports(): PendingImport[] {
+  const rows = db
+    .prepare(
+      `SELECT id, payload, status, attempts, max_attempts, last_error, run_after, created_at
+         FROM jobs
+        WHERE type = 'fetch_url' AND status IN ('queued', 'running')
+        ORDER BY id ASC
+        LIMIT 50`,
+    )
+    .all() as Array<{
+    id: number;
+    payload: string;
+    status: JobStatus;
+    attempts: number;
+    max_attempts: number;
+    last_error: string | null;
+    run_after: number;
+    created_at: number;
+  }>;
+
+  return rows.map((row) => {
+    let url = '';
+    try {
+      const parsed = JSON.parse(row.payload) as { url?: unknown };
+      if (typeof parsed.url === 'string') url = parsed.url;
+    } catch {
+      // A malformed payload still deserves a placeholder; it just has no URL
+      // to label it with.
+    }
+
+    return {
+      jobId: row.id,
+      url,
+      status: row.status,
+      attempts: row.attempts,
+      maxAttempts: row.max_attempts,
+      lastError: row.last_error,
+      runAfter: row.run_after,
+      createdAt: row.created_at,
+    };
+  });
+}
+
+export function cancelImport(jobId: number): boolean {
+  const result = db
+    .prepare("UPDATE jobs SET status = 'failed', last_error = 'Cancelled.', updated_at = ? WHERE id = ? AND type = 'fetch_url' AND status = 'queued'")
+    .run(Date.now(), jobId);
+  return result.changes > 0;
+}
+
 export function jobsForClip(clipId: string): Job[] {
   return db.prepare('SELECT * FROM jobs WHERE clip_id = ? ORDER BY id DESC LIMIT 20').all(clipId) as Job[];
 }

@@ -188,6 +188,51 @@
   color: var(--accent);
 }
 
+/* ── Media-type filter ──────────────────────────────────────────────────────
+   A segmented track, visually distinct from the nav rows above it because it
+   behaves differently: it intersects with the active view rather than
+   replacing it. The sunken track is what signals "refinement, not
+   destination" at a glance. */
+
+.sidebar__kinds {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.sidebar__kind {
+  /* Equal widths with min-width:0 so "Image" ellipsises instead of forcing
+     the track wider than the sidebar on a narrow viewport. */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.sidebar__kind:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar__kind.is-active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+}
+
 /* Insertion indicator while reordering. */
 .sidebar__drop-line {
   position: absolute;

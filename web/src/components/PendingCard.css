@@ -1,0 +1,170 @@
+/*
+ * Sized identically to a real clip card — square media, 72px body — so when
+ * the download lands and the real card replaces it, nothing in the grid
+ * shifts.
+ */
+.pending-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-raised);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  contain: layout paint style;
+  animation: rise-in var(--duration-normal) var(--ease-out);
+}
+
+.pending-card__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.pending-card__shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+
+.pending-card__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  text-align: center;
+}
+
+.pending-card__site {
+  padding: 2px var(--space-2);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-card__state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+.pending-card__state .spinner {
+  width: 13px;
+  height: 13px;
+  border-width: 1.5px;
+}
+
+/* Queued rather than running: a slow pulse reads as "waiting" where a
+   spinner would wrongly imply work is happening. */
+.pending-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  animation: pending-pulse 1.8s var(--ease-in-out) infinite;
+}
+
+@keyframes pending-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-card__dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+.pending-card__attempt {
+  color: var(--warning);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.pending-card__cancel {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  background: rgba(8, 9, 13, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: var(--text-md);
+  line-height: 1;
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.pending-card:hover .pending-card__cancel,
+.pending-card__cancel:focus-visible {
+  opacity: 1;
+}
+
+.pending-card__cancel:hover {
+  background: var(--danger);
+}
+
+/* No hover on touch, so the control has to be permanently visible. */
+@media (hover: none) {
+  .pending-card__cancel {
+    opacity: 1;
+  }
+}
+
+.pending-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  min-height: 72px;
+}
+
+.pending-card__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.pending-card__error {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-snug);
+  color: var(--warning);
+}
+
+.pending-card__line {
+  height: 11px;
+  width: 62%;
+  border-radius: var(--radius-xs);
+}

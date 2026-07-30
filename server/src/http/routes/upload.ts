@@ -8,7 +8,17 @@ import { isFavorited, toClipView } from '../../clips/repository.ts';
 import { config } from '../../config.ts';
 import { enqueueUrlIngest, ingestLocalFile } from '../../media/ingest.ts';
 import { extensionOf } from '../../media/storage.ts';
-import { IngestError, cookieStatus, detectSite, normaliseUrl, updateYtDlp, ytDlpVersion } from '../../media/urlingest.ts';
+import {
+  IngestError,
+  cookieStatus,
+  detectSite,
+  normaliseUrl,
+  probeUrl,
+  supportedCookieSites,
+  updateYtDlp,
+  writeSessionCookies,
+  ytDlpVersion,
+} from '../../media/urlingest.ts';
 import { newId } from '../../util/ids.ts';
 import { requireAdmin, requireUser } from '../context.ts';
 
@@ -207,6 +217,53 @@ export async function registerUploadRoutes(app: FastifyInstance): Promise<void> 
     }
 
     return { ok: true, site, cookies: await cookieStatus() };
+  });
+
+  /**
+   * Save a pasted session token instead of an exported cookies.txt.
+   *
+   * Instagram will not serve most Reels anonymously, and exporting a cookie
+   * file means installing a browser extension. Copying one `sessionid` value
+   * out of DevTools is a ten-second job, and the file format is synthesised
+   * server-side from it.
+   */
+  app.post('/api/ingest/session/:site', async (request) => {
+    requireAdmin(request);
+    const { site } = request.params as { site: string };
+    const body = (request.body ?? {}) as Record<string, unknown>;
+
+    if (!supportedCookieSites().includes(site)) {
+      throw new AuthError(`Session tokens are not supported for "${site}".`);
+    }
+
+    const values: Record<string, string> = {};
+    for (const [key, value] of Object.entries(body)) {
+      if (typeof value === 'string' && value.trim()) {
+        // People paste `sessionid=abc; Path=/` straight out of DevTools as
+        // often as they paste the bare value. Accept both.
+        values[key] = value.trim().replace(/^[^=]+=/, '').replace(/;.*$/, '').trim();
+      }
+    }
+
+    const { written } = await writeSessionCookies(site, values);
+    return { ok: true, site, cookies: await cookieStatus(), written };
+  });
+
+  /**
+   * Dry-run a link through the real downloader.
+   *
+   * Answers the only question that matters after configuring cookies — would
+   * importing this actually work right now — rather than checking some proxy
+   * endpoint that may not reflect the extractor's own auth path.
+   */
+  app.post('/api/ingest/probe', async (request) => {
+    requireUser(request);
+    const body = (request.body ?? {}) as { url?: unknown };
+
+    const url = typeof body.url === 'string' ? body.url.trim() : '';
+    if (!url) throw new AuthError('A URL to test is required.');
+
+    return probeUrl(url);
   });
 
   app.delete('/api/ingest/cookies/:site', async (request) => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
-import type { IngestStatus, Invite, SystemStatus, User } from '../api/types.ts';
+import type { IngestStatus, Invite, ProbeResult, SystemStatus, User } from '../api/types.ts';
 import { useDismissable, useFocusTrap, useScrollLock } from '../hooks/index.ts';
 import { useApp } from '../state/store.tsx';
 import { formatBytes, formatRelativeTime, formatUsd, initialsOf } from '../utils/format.ts';
@@ -8,11 +8,42 @@ import './SettingsDialog.css';
 
 type Tab = 'account' | 'people' | 'ingest' | 'library';
 
+/**
+ * Per-site auth setup.
+ *
+ * `cookie` is the single cookie that actually carries the session — copying
+ * one value out of DevTools is far less friction than installing a cookies.txt
+ * extension, and it is all yt-dlp needs.
+ */
 const COOKIE_SITES = [
-  { id: 'instagram', label: 'Instagram', note: 'Almost always required — Reels are refused without a session.' },
-  { id: 'tiktok', label: 'TikTok', note: 'Usually optional. Helps with rate limits and private posts.' },
-  { id: 'youtube', label: 'YouTube', note: 'Only needed for age-restricted or members-only videos.' },
-  { id: 'twitter', label: 'X / Twitter', note: 'Required for most video posts these days.' },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    cookie: 'sessionid',
+    required: true,
+    note: 'Required. Instagram refuses almost all Reels without a signed-in session.',
+  },
+  {
+    id: 'tiktok',
+    label: 'TikTok',
+    cookie: 'sessionid',
+    required: false,
+    note: 'Usually optional — helps with rate limits and private posts.',
+  },
+  {
+    id: 'twitter',
+    label: 'X / Twitter',
+    cookie: 'auth_token',
+    required: true,
+    note: 'Required for most video posts.',
+  },
+  {
+    id: 'youtube',
+    label: 'YouTube',
+    cookie: 'SID',
+    required: false,
+    note: 'Only for age-restricted or members-only videos.',
+  },
 ] as const;
 
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -281,73 +312,33 @@ function IngestTab({
       </div>
 
       <div className="settings__group">
-        <h3 className="settings__group-title">Site cookies</h3>
+        <h3 className="settings__group-title">Site sign-in</h3>
         <p className="settings__note">
-          Export <code>cookies.txt</code> from a browser signed in to the site (any Netscape-format cookie
-          extension does this), then upload it here. Cookies are stored on the server only and are never sent
-          to the browser.
+          Some sites only serve videos to a signed-in session. Paste the one cookie that carries it — in your
+          browser on that site, open DevTools → Application → Cookies and copy the value shown below. Nothing
+          is sent back to the browser once saved, and you can paste the whole <code>name=value</code> pair if
+          that is easier.
         </p>
 
         <ul className="settings__cookies">
-          {COOKIE_SITES.map((site) => {
-            const present = ingest?.cookies[site.id] ?? false;
-            return (
-              <li key={site.id} className="settings__cookie">
-                <div className="settings__row-text">
-                  <strong>
-                    {site.label}
-                    <span className={`settings__pill${present ? ' is-good' : ''}`}>
-                      {present ? 'configured' : 'none'}
-                    </span>
-                  </strong>
-                  <span className="settings__muted">{site.note}</span>
-                </div>
-
-                {isAdmin && (
-                  <div className="settings__cookie-actions">
-                    <input
-                      ref={(element) => {
-                        fileInputs.current.set(site.id, element);
-                      }}
-                      type="file"
-                      accept=".txt,text/plain"
-                      className="visually-hidden"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) void uploadCookies(site.id, file);
-                        event.target.value = '';
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn--secondary btn--sm"
-                      onClick={() => fileInputs.current.get(site.id)?.click()}
-                    >
-                      {present ? 'Replace' : 'Upload'}
-                    </button>
-                    {present && (
-                      <button
-                        type="button"
-                        className="btn btn--ghost btn--sm"
-                        onClick={() => {
-                          void api
-                            .deleteCookies(site.id)
-                            .then((result) =>
-                              setIngest((current) => (current ? { ...current, cookies: result.cookies } : current)),
-                            )
-                            .catch((error: unknown) => reportError(error, 'Could not remove those cookies.'));
-                        }}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
+          {COOKIE_SITES.map((site) => (
+            <SiteAuthRow
+              key={site.id}
+              site={site}
+              present={ingest?.cookies[site.id] ?? false}
+              isAdmin={isAdmin}
+              onChanged={(cookies) => setIngest((current) => (current ? { ...current, cookies } : current))}
+              onPickFile={() => fileInputs.current.get(site.id)?.click()}
+              registerFileInput={(element) => fileInputs.current.set(site.id, element)}
+              onUploadFile={(file) => void uploadCookies(site.id, file)}
+              notify={notify}
+              reportError={reportError}
+            />
+          ))}
         </ul>
       </div>
+
+      <LinkTester reportError={reportError} />
 
       {ingest && (
         <div className="settings__group">
@@ -360,6 +351,221 @@ function IngestTab({
             <span className="settings__muted">Maximum download from a link</span>
             <strong>{formatBytes(ingest.maxUrlBytes)}</strong>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One site's auth state: paste a session token, or fall back to a cookie file. */
+function SiteAuthRow({
+  site,
+  present,
+  isAdmin,
+  onChanged,
+  onPickFile,
+  registerFileInput,
+  onUploadFile,
+  notify,
+  reportError,
+}: {
+  site: (typeof COOKIE_SITES)[number];
+  present: boolean;
+  isAdmin: boolean;
+  onChanged: (cookies: Record<string, boolean>) => void;
+  onPickFile: () => void;
+  registerFileInput: (element: HTMLInputElement | null) => void;
+  onUploadFile: (file: File) => void;
+  notify: Notifier;
+  reportError: ErrorReporter;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!value.trim()) return;
+
+    setSaving(true);
+    try {
+      const result = await api.saveSession(site.id, { [site.cookie]: value });
+      onChanged(result.cookies);
+      // Never keep a bearer credential in component state longer than needed.
+      setValue('');
+      setOpen(false);
+      notify({
+        kind: 'success',
+        message: `${site.label} sign-in saved.`,
+        hint: 'Use "Test a link" below to confirm it works.',
+      });
+    } catch (error) {
+      reportError(error, `Could not save the ${site.label} session.`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <li className="settings__cookie settings__cookie--stack">
+      <div className="settings__cookie-head">
+        <div className="settings__row-text">
+          <strong>
+            {site.label}
+            <span className={`settings__pill${present ? ' is-good' : site.required ? ' is-warn' : ''}`}>
+              {present ? 'signed in' : site.required ? 'needed' : 'not set'}
+            </span>
+          </strong>
+          <span className="settings__muted">{site.note}</span>
+        </div>
+
+        {isAdmin && (
+          <div className="settings__cookie-actions">
+            <button type="button" className="btn btn--secondary btn--sm" onClick={() => setOpen((v) => !v)}>
+              {present ? 'Replace' : 'Sign in'}
+            </button>
+            {present && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => {
+                  void api
+                    .deleteCookies(site.id)
+                    .then((result) => onChanged(result.cookies))
+                    .catch((error: unknown) => reportError(error, 'Could not remove that session.'));
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {isAdmin && open && (
+        <form className="settings__session" onSubmit={save}>
+          <label className="settings__session-label" htmlFor={`session-${site.id}`}>
+            Paste the <code>{site.cookie}</code> cookie value
+          </label>
+          <div className="settings__session-row">
+            <input
+              id={`session-${site.id}`}
+              className="input settings__session-input"
+              // type=password so a session token is not left on screen in a
+              // shared room or a screen share.
+              type="password"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder={`${site.cookie}=…`}
+              autoComplete="off"
+              spellCheck={false}
+              autoFocus
+            />
+            <button type="submit" className="btn btn--primary btn--sm" disabled={!value.trim() || saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+
+          <p className="settings__note">
+            Prefer a file? You can still{' '}
+            <button type="button" className="settings__inline-link" onClick={onPickFile}>
+              upload a cookies.txt
+            </button>{' '}
+            instead.
+          </p>
+
+          <input
+            ref={registerFileInput}
+            type="file"
+            accept=".txt,text/plain"
+            className="visually-hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onUploadFile(file);
+              event.target.value = '';
+            }}
+          />
+        </form>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Dry-run a real link through the downloader.
+ *
+ * Configuring cookies and then finding out hours later that they were wrong is
+ * the worst version of this. Testing runs the actual extractor, so the answer
+ * is the one that matters.
+ */
+function LinkTester({ reportError }: { reportError: ErrorReporter }) {
+  const [url, setUrl] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<ProbeResult | null>(null);
+
+  const test = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!url.trim()) return;
+
+    setTesting(true);
+    setResult(null);
+    try {
+      setResult(await api.probe(url));
+    } catch (error) {
+      reportError(error, 'The test could not run.');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="settings__group">
+      <h3 className="settings__group-title">Test a link</h3>
+      <p className="settings__note">
+        Runs the real downloader without saving anything, so you can confirm a site works before importing a
+        batch.
+      </p>
+
+      <form className="settings__session-row" onSubmit={test}>
+        <input
+          className="input"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder="https://www.instagram.com/reel/…"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label="Link to test"
+        />
+        <button type="submit" className="btn btn--secondary btn--sm" disabled={!url.trim() || testing}>
+          {testing ? 'Testing…' : 'Test'}
+        </button>
+      </form>
+
+      {testing && (
+        <div className="settings__row">
+          <span className="spinner" />
+          <span className="settings__muted">Asking {new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '')}…</span>
+        </div>
+      )}
+
+      {result && !testing && (
+        <div className={`settings__probe${result.ok ? ' is-ok' : ' is-bad'}`}>
+          <strong>
+            {result.ok ? '✓ ' : '✕ '}
+            {result.ok ? `${result.site} works` : `${result.site} failed`}
+            <span className="settings__pill">{result.usedCookies ? 'using your session' : 'anonymous'}</span>
+          </strong>
+          {result.ok ? (
+            <span className="settings__muted">
+              {result.title ?? 'Untitled'}
+              {result.uploader ? ` · ${result.uploader}` : ''}
+            </span>
+          ) : (
+            <>
+              <span className="settings__muted">{result.error}</span>
+              {result.hint && <span className="settings__muted settings__probe-hint">{result.hint}</span>}
+            </>
+          )}
         </div>
       )}
     </div>

@@ -117,6 +117,23 @@ function buildConfig() {
     maxUploadBytes: envInt('MAX_UPLOAD_BYTES', 2 * 1024 * 1024 * 1024),
     maxUrlBytes: envInt('MAX_URL_BYTES', 1024 * 1024 * 1024),
     enableUrlIngest: envBool('ENABLE_URL_INGEST', true),
+    /**
+     * Optional proxy for yt-dlp.
+     *
+     * TikTok blocks datacenter IP ranges outright ("Your IP address is
+     * blocked from accessing this post") regardless of cookies. From a
+     * residential connection this is unnecessary; from a VPS or a cloud
+     * container it is the only way through.
+     */
+    ytDlpProxy: env('YTDLP_PROXY'),
+    /**
+     * Explicit path to the yt-dlp binary.
+     *
+     * `pip install --user yt-dlp` puts it in ~/.local/bin, which is on an
+     * interactive shell's PATH but not on the minimal PATH a service or
+     * container process inherits. Leave unset to auto-detect.
+     */
+    ytDlpPath: env('YTDLP_PATH'),
 
     tagger: {
       provider: anthropicApiKey || taggerProvider !== 'claude' ? taggerProvider : ('disabled' as TaggerProvider),

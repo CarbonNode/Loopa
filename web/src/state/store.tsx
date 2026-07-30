@@ -222,13 +222,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     previousBusy.current = busy;
-    const timer = setInterval(() => {
-      void refreshStatus();
-      invalidateLibrary();
-    }, 2500);
-
+    const timer = setInterval(() => void refreshStatus(), 2500);
     return () => clearInterval(timer);
   }, [user, busy, refreshStatus, refreshCategories, invalidateLibrary]);
+
+  /**
+   * Refetch the grid only when the library actually changed.
+   *
+   * Invalidating on every status poll re-rendered every card every 2.5s for
+   * as long as any job was running — which restarts hover previews under the
+   * cursor and makes the grid feel unstable while a download is in flight.
+   * The clip count is the signal that something new has landed.
+   */
+  const previousClipCount = useRef<number | null>(null);
+  useEffect(() => {
+    const count = status?.stats.clips;
+    if (count === undefined) return;
+
+    if (previousClipCount.current !== null && previousClipCount.current !== count) {
+      invalidateLibrary();
+      void refreshCategories();
+    }
+    previousClipCount.current = count;
+  }, [status?.stats.clips, invalidateLibrary, refreshCategories]);
 
   // ── Filters ──────────────────────────────────────────────────────────────
 

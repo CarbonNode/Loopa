@@ -10,7 +10,7 @@ import {
 } from '../../auth/service.ts';
 import { getClip, hardDeleteClip, libraryStats, pruneOrphanTags } from '../../clips/repository.ts';
 import { db } from '../../db/index.ts';
-import { jobStats, recentFailures, retryJob } from '../../jobs/queue.ts';
+import { cancelImport, jobStats, pendingImports, recentFailures, retryJob } from '../../jobs/queue.ts';
 import { removeDerivedDir, removeStoredFiles } from '../../media/storage.ts';
 import { rebuildIndex } from '../../search/index.ts';
 import { requireAdmin, requireUser } from '../context.ts';
@@ -71,6 +71,9 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       jobs: jobStats(),
       stats: libraryStats(),
       tagger: taggerStatus(),
+      // Carried on the status poll the client already runs, so the grid can
+      // show a placeholder per in-flight download without a second request.
+      pendingImports: pendingImports(),
     };
   });
 
@@ -99,6 +102,17 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     if (!Number.isFinite(jobId)) throw new AuthError('Invalid job id.');
 
     return { ok: retryJob(jobId) };
+  });
+
+  /** Drop a queued download the user changed their mind about. */
+  app.delete('/api/imports/:jobId', async (request) => {
+    requireUser(request);
+    const { jobId } = request.params as { jobId: string };
+
+    const id = Number.parseInt(jobId, 10);
+    if (!Number.isFinite(id)) throw new AuthError('Invalid job id.');
+
+    return { ok: cancelImport(id) };
   });
 
   app.post('/api/system/reindex', async (request) => {

@@ -289,7 +289,12 @@ export function Lightbox() {
                   {sourceHost && (
                     <>
                       <span aria-hidden="true">·</span>
-                      <a href={clip.source.url ?? '#'} target="_blank" rel="noreferrer noopener">
+                      <a
+                        className="lightbox__source"
+                        href={clip.source.url ?? '#'}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
                         {sourceHost}
                       </a>
                     </>

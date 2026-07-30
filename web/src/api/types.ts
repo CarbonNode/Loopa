@@ -77,10 +77,34 @@ export type LibraryStats = {
 
 export type JobStats = { queued: number; running: number; done: number; failed: number };
 
+/** A download that is queued, running, or waiting to retry. */
+export type PendingImport = {
+  jobId: number;
+  url: string;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  attempts: number;
+  maxAttempts: number;
+  lastError: string | null;
+  runAfter: number;
+  createdAt: number;
+};
+
 export type SystemStatus = {
   jobs: JobStats;
   stats: LibraryStats;
   tagger: { enabled: boolean; provider: string; model: string | null };
+  pendingImports: PendingImport[];
+};
+
+export type ProbeResult = {
+  ok: boolean;
+  site: string;
+  title?: string;
+  uploader?: string;
+  durationMs?: number | null;
+  error?: string;
+  hint?: string;
+  usedCookies: boolean;
 };
 
 export type IngestStatus = {

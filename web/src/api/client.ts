@@ -6,6 +6,7 @@ import type {
   ImportResult,
   IngestStatus,
   Invite,
+  ProbeResult,
   Role,
   SystemStatus,
   Tag,
@@ -243,6 +244,19 @@ export const api = {
 
   deleteCookies: (site: string) =>
     request<{ ok: boolean; cookies: Record<string, boolean> }>(`/api/ingest/cookies/${site}`, { method: 'DELETE' }),
+
+  /** Save a pasted session token; the server synthesises the cookie file. */
+  saveSession: (site: string, values: Record<string, string>) =>
+    request<{ ok: boolean; site: string; cookies: Record<string, boolean>; written: string[] }>(
+      `/api/ingest/session/${site}`,
+      { method: 'POST', body: JSON.stringify(values) },
+    ),
+
+  /** Dry-run a link through the real downloader. */
+  probe: (url: string) =>
+    request<ProbeResult>('/api/ingest/probe', { method: 'POST', body: JSON.stringify({ url }) }),
+
+  cancelImport: (jobId: number) => request<{ ok: boolean }>(`/api/imports/${jobId}`, { method: 'DELETE' }),
 
   // ── System / admin ───────────────────────────────────────────────────────
   systemStatus: () => request<SystemStatus>('/api/system/status'),
