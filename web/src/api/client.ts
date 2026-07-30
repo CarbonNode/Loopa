@@ -8,6 +8,8 @@ import type {
   Invite,
   ProbeResult,
   Role,
+  StudioClipResult,
+  StudioResolve,
   SystemStatus,
   Tag,
   TagWithCount,
@@ -264,6 +266,26 @@ export const api = {
     request<ProbeResult>('/api/ingest/probe', { method: 'POST', body: JSON.stringify({ url }) }),
 
   cancelImport: (jobId: number) => request<{ ok: boolean }>(`/api/imports/${jobId}`, { method: 'DELETE' }),
+
+  // ── Clip studio ──────────────────────────────────────────────────────────
+  /**
+   * Read a video's timeline without downloading it.
+   *
+   * POST, not GET: this spawns a yt-dlp process per call, which is not
+   * something a browser or proxy should feel free to prefetch.
+   */
+  resolveVideo: (url: string) =>
+    request<StudioResolve>('/api/studio/resolve', { method: 'POST', body: JSON.stringify({ url }) }),
+
+  /** Queue a range for download. Returns as soon as the job is enqueued. */
+  createStudioClip: (input: {
+    url: string;
+    startMs: number;
+    endMs: number;
+    title?: string;
+    categoryId?: string | null;
+    mute?: boolean;
+  }) => request<StudioClipResult>('/api/studio/clip', { method: 'POST', body: JSON.stringify(input) }),
 
   // ── System / admin ───────────────────────────────────────────────────────
   systemStatus: () => request<SystemStatus>('/api/system/status'),

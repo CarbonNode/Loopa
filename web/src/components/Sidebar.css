@@ -188,6 +188,35 @@
   color: var(--accent);
 }
 
+/* Shortcut hint on a nav row. Matches the count's slot so rows with a badge
+   and rows with a shortcut keep the same right-hand rhythm. */
+.sidebar__kbd {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-snug);
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.sidebar__item:hover .sidebar__kbd,
+.sidebar__item:focus-visible .sidebar__kbd {
+  opacity: 1;
+}
+
+/* A shortcut you cannot press is noise, so it is hidden where there is no
+   keyboard to press it with. */
+@media (pointer: coarse) {
+  .sidebar__kbd {
+    display: none;
+  }
+}
+
 /* ── Media-type filter ──────────────────────────────────────────────────────
    A segmented track, visually distinct from the nav rows above it because it
    behaves differently: it intersects with the active view rather than

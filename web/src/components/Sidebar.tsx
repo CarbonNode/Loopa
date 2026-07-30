@@ -43,6 +43,8 @@ export function Sidebar() {
     clearSelection,
     sidebarOpen,
     setSidebarOpen,
+    route,
+    navigate,
   } = useApp();
 
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -216,9 +218,10 @@ export function Sidebar() {
             <li>
               <button
                 type="button"
-                className={`sidebar__item${!filters.categoryId && !filters.tagId && !filters.favorites ? ' is-active' : ''}`}
+                className={`sidebar__item${route === 'library' && !filters.categoryId && !filters.tagId && !filters.favorites ? ' is-active' : ''}`}
                 onClick={() => {
                   setFilters({ categoryId: null, tagId: null, favorites: false });
+                  navigate('library');
                   closeOnMobile();
                 }}
               >
@@ -242,6 +245,23 @@ export function Sidebar() {
                   ♥
                 </span>
                 <span className="sidebar__label">Favourites</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className={`sidebar__item${route === 'studio' ? ' is-active' : ''}`}
+                onClick={() => {
+                  navigate('studio');
+                  closeOnMobile();
+                }}
+                title="Trim a YouTube video into a clip"
+              >
+                <span className="sidebar__icon" aria-hidden="true">
+                  ✂
+                </span>
+                <span className="sidebar__label">Clip studio</span>
+                <kbd className="sidebar__kbd">C</kbd>
               </button>
             </li>
           </ul>

@@ -11,6 +11,56 @@ export function formatDuration(ms: number | null): string | null {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+/**
+ * A timecode for editing, rather than for display on a card.
+ *
+ * `formatDuration` rounds to the second and gives up below 250ms, which is
+ * right for "how long is this clip" and wrong for "where exactly does the cut
+ * land" — at second precision a trim handle appears not to move until it
+ * jumps a whole second. Tenths are the smallest unit worth showing: finer
+ * than that is below the resolution of the drag, and reads as noise.
+ */
+export function formatTimecode(ms: number, options: { tenths?: boolean } = {}): string {
+  const clamped = Math.max(0, ms);
+  const totalSeconds = Math.floor(clamped / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const base =
+    hours > 0
+      ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      : `${minutes}:${String(seconds).padStart(2, '0')}`;
+
+  if (!options.tenths) return base;
+  return `${base}.${Math.floor((clamped % 1000) / 100)}`;
+}
+
+/**
+ * Read a typed timecode back into milliseconds.
+ *
+ * Accepts what people actually type into a time field: `72`, `1:12`, `1:12.4`,
+ * `1:02:03`. Returns null for anything it cannot make sense of, so the caller
+ * can leave the previous value alone rather than snapping the handle to zero
+ * halfway through someone typing.
+ */
+export function parseTimecode(input: string): number | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (!/^\d{1,2}(:\d{1,2}){0,2}(\.\d{1,3})?$/.test(trimmed)) return null;
+
+  const [whole, fraction = ''] = trimmed.split('.');
+  const parts = whole!.split(':').map(Number);
+  if (parts.some((part) => !Number.isFinite(part))) return null;
+
+  // Right-aligned: the last part is always seconds, whatever the length.
+  let seconds = 0;
+  for (const part of parts) seconds = seconds * 60 + part!;
+
+  const millis = fraction ? Number(fraction.padEnd(3, '0').slice(0, 3)) : 0;
+  return seconds * 1000 + millis;
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ['KB', 'MB', 'GB', 'TB'];

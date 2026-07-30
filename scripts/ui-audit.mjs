@@ -22,6 +22,10 @@ const CREDENTIALS = {
   password: process.env.LOOPA_AUDIT_PASSWORD ?? 'wkomstu95@',
 };
 
+// A short, stable, Creative Commons video: the studio needs a real YouTube id
+// to resolve, and a link that could be deleted would make the audit flaky.
+const STUDIO_TEST_URL = process.env.LOOPA_AUDIT_VIDEO ?? 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+
 const VIEWPORTS = [
   { name: 'mobile-360', width: 360, height: 780 },
   { name: 'mobile-390', width: 390, height: 844 },
@@ -221,8 +225,19 @@ async function main() {
     const page = await context.newPage();
 
     const consoleErrors = [];
+    /**
+     * Only our own frames count.
+     *
+     * The clip studio embeds the YouTube player, and a third-party iframe
+     * logs its own errors into this page's console — cookie warnings, its own
+     * failed requests. Reporting those as findings would bury a genuine bug
+     * from our code in noise we cannot fix anyway.
+     */
+    const isOurs = (url) => !url || url.startsWith(BASE) || url.startsWith('blob:') || url.startsWith('data:');
     page.on('console', (message) => {
-      if (message.type() === 'error') consoleErrors.push(message.text());
+      if (message.type() !== 'error') return;
+      if (!isOurs(message.location()?.url ?? '')) return;
+      consoleErrors.push(message.text());
     });
     page.on('pageerror', (error) => consoleErrors.push(String(error)));
 
@@ -325,20 +340,73 @@ async function main() {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
+    // ── Clip studio ──────────────────────────────────────────────────────
+    // Navigated by URL rather than by clicking the sidebar, so this also
+    // exercises the SPA fallback: /studio has to survive a hard load.
+    await page.goto(`${BASE}/studio`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.studio__empty', { timeout: 20_000 });
+    await record('12-studio-empty');
+
+    await page.fill('#studio-url', STUDIO_TEST_URL);
+    await page.click('.studio__paste button[type="submit"]');
+    // The timeline only appears once a duration is known — from the server
+    // resolve, or from the player. Either way it is a network round trip, and
+    // a machine with no route to YouTube should still produce a screenshot of
+    // whatever state it reached rather than failing the whole run.
+    await page
+      .waitForSelector('.timeline__track', { timeout: 60_000 })
+      .catch(() => console.warn('  (studio timeline did not appear — offline?)'));
+
+    // The player supplies a duration in well under a second, but the title,
+    // chapters and heatmap come from a yt-dlp call that takes a couple more.
+    // Without waiting for that, this screenshots the skeleton state and the
+    // populated panel never gets audited at all.
+    await page
+      .waitForFunction(
+        () => {
+          const title = document.querySelector('.studio__meta-title');
+          return Boolean(title?.textContent) && title.textContent.trim() !== 'Loading…';
+        },
+        { timeout: 45_000 },
+      )
+      .catch(() => console.warn('  (studio metadata did not resolve — offline?)'));
+    await page.waitForTimeout(700);
+    await record('13-studio-loaded');
+
+    // Zoomed in: the overview strip and the ruler only render past this point,
+    // and the handles land near each other, which is where they collide.
+    const fitButton = await page.$('.timeline__zoom button:has-text("Fit")');
+    if (fitButton) {
+      await fitButton.click();
+      await page.waitForTimeout(400);
+      await record('14-studio-zoomed');
+    }
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = 'light';
+    });
+    await record('15-studio-light');
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = 'dark';
+    });
+
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.clip-card, .empty-state', { timeout: 20_000 });
+
     // ── Selection bar (bottom-centre; must clear toasts and upload tray) ──
     const cards = await page.$$('.clip-card__action--select');
     for (const selectButton of cards.slice(0, 3)) {
       await selectButton.click();
       await page.waitForTimeout(120);
     }
-    await record('12-selection');
+    await record('16-selection');
 
     // ── Light theme ──────────────────────────────────────────────────────
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'light';
     });
     await page.waitForTimeout(400);
-    await record('13-light-theme');
+    await record('17-light-theme');
 
     for (const error of consoleErrors) {
       findings.push({ viewport: viewport.name, view: 'console', kind: 'console-error', detail: error.slice(0, 200) });

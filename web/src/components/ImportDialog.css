@@ -90,3 +90,9 @@
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
+
+/* A sidestep, not a primary action: it leaves this dialog for another screen. */
+.import-dialog__studio {
+  align-self: flex-start;
+  margin-top: calc(var(--space-1) * -1);
+}

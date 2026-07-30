@@ -28,7 +28,7 @@ import {
   ensureDirFor,
   fileExists,
 } from '../media/storage.ts';
-import { IngestError, fetchAny } from '../media/urlingest.ts';
+import { IngestError, fetchAny, fetchSection } from '../media/urlingest.ts';
 import { newId } from '../util/ids.ts';
 import { enqueue, PermanentJobError, type Job } from './queue.ts';
 
@@ -96,6 +96,103 @@ export async function handleFetchUrl(job: Job, payload: Record<string, unknown>)
     }
   } finally {
     await rm(fetched.workDir, { recursive: true, force: true });
+  }
+}
+
+// ── clip_url ─────────────────────────────────────────────────────────────────
+
+/**
+ * Download one range out of a remote video and file it as a clip.
+ *
+ * Separate from fetch_url because the interesting failure is different: a
+ * whole-post import either works or the post is gone, whereas a cut can also
+ * be asked for beyond the end of the video, or for a range the extractor
+ * refuses to seek into. Those are permanent, so they burn the job instead of
+ * retrying four times against a rate limit.
+ */
+export async function handleClipUrl(job: Job, payload: Record<string, unknown>): Promise<void> {
+  const url = typeof payload.url === 'string' ? payload.url : null;
+  if (!url) throw new PermanentJobError('clip_url job has no url');
+
+  const startMs = Number(payload.startMs);
+  const endMs = Number(payload.endMs);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    throw new PermanentJobError('clip_url job has an invalid range');
+  }
+
+  const uploaderId = typeof payload.uploaderId === 'string' ? payload.uploaderId : null;
+  const categoryIds = Array.isArray(payload.categoryIds) ? (payload.categoryIds as string[]) : [];
+  const requestedTitle = typeof payload.title === 'string' ? payload.title.trim() : '';
+  const mute = payload.mute === true;
+
+  let fetched: Awaited<ReturnType<typeof fetchSection>>;
+  try {
+    fetched = await fetchSection(url, { startMs, endMs, mute });
+  } catch (error) {
+    if (error instanceof IngestError && !error.retryable) {
+      throw new PermanentJobError(error.hint ? `${error.message} ${error.hint}` : error.message);
+    }
+    throw error;
+  }
+
+  try {
+    const { metadata } = fetched;
+
+    // A clip of a video is not the video: default the title to the source
+    // title plus the timestamp, so ten cuts of the same stream stay tellable
+    // apart in the grid.
+    const title = (requestedTitle || `${metadata.title ?? 'Clip'} · ${formatTimecode(startMs)}`).slice(0, 140);
+
+    const { clip, duplicate } = await ingestLocalFile({
+      tempPath: fetched.path,
+      filename: `${metadata.title ?? 'clip'}.mp4`,
+      uploaderId,
+      // Deep-link back to the exact moment in the source, not just the video.
+      sourceUrl: withTimestamp(metadata.canonicalUrl, startMs),
+      sourceSite: metadata.siteLabel,
+      title,
+      description: metadata.caption?.slice(0, 600) ?? '',
+      categoryIds,
+      taggingHints: {
+        caption: metadata.caption,
+        uploader: metadata.uploader,
+        hashtags: metadata.hashtags,
+      },
+    });
+
+    if (!duplicate && metadata.hashtags.length > 0) {
+      setClipTags(
+        clip.id,
+        metadata.hashtags.map((name) => ({ name, kind: 'source' as const })),
+        'human',
+      );
+      reindexClipById(clip.id);
+    }
+  } finally {
+    await rm(fetched.workDir, { recursive: true, force: true });
+  }
+}
+
+/** m:ss, or h:mm:ss past an hour — how people say a timestamp out loud. */
+function formatTimecode(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    : `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+/** Append the start offset so the stored source link opens at the clipped moment. */
+function withTimestamp(rawUrl: string, startMs: number): string {
+  try {
+    const url = new URL(rawUrl);
+    url.searchParams.set('t', `${Math.floor(startMs / 1000)}s`);
+    return url.toString();
+  } catch {
+    return rawUrl;
   }
 }
 
@@ -343,6 +440,7 @@ export function ensureStarterCategories(createdBy: string | null): void {
 
 export const jobHandlers = {
   fetch_url: handleFetchUrl,
+  clip_url: handleClipUrl,
   derive: handleDerive,
   tag: handleTag,
 } as const;

@@ -17,6 +17,7 @@ import { announceSetupIfNeeded, registerAuthRoutes } from './http/routes/auth.ts
 import { registerAdminRoutes } from './http/routes/admin.ts';
 import { registerCategoryRoutes } from './http/routes/categories.ts';
 import { registerClipRoutes } from './http/routes/clips.ts';
+import { registerStudioRoutes } from './http/routes/studio.ts';
 import { registerUploadRoutes } from './http/routes/upload.ts';
 import { attachUser, requireUser, sendError } from './http/context.ts';
 import { commandExists } from './util/proc.ts';
@@ -117,6 +118,7 @@ async function main(): Promise<void> {
   await registerClipRoutes(app);
   await registerCategoryRoutes(app);
   await registerUploadRoutes(app);
+  await registerStudioRoutes(app);
   await registerAdminRoutes(app);
 
   /** Download with the original filename, rather than the content hash. */
@@ -191,7 +193,7 @@ async function main(): Promise<void> {
 
   const networkPool = new WorkerPool({
     name: 'network',
-    types: ['fetch_url', 'tag'],
+    types: ['fetch_url', 'clip_url', 'tag'],
     handlers: jobHandlers,
     concurrency: config.workers.taggingConcurrency,
   });

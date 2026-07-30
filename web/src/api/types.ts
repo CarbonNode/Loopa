@@ -87,6 +87,8 @@ export type PendingImport = {
   lastError: string | null;
   runAfter: number;
   createdAt: number;
+  /** Set for studio cuts, e.g. "0:30 – 0:38". Null for a whole-post import. */
+  label: string | null;
 };
 
 export type SystemStatus = {
@@ -137,6 +139,48 @@ export type UploadResult = {
 export type ImportResult = {
   queued: Array<{ jobId: number; url: string; site: string }>;
   rejected: Array<{ url: string; error: string; hint?: string }>;
+};
+
+// ── Clip studio ────────────────────────────────────────────────────────────
+
+export type VideoChapter = { title: string; startMs: number; endMs: number };
+
+/** A "most replayed" sample, normalised to 0–1. YouTube only. */
+export type HeatPoint = { atMs: number; value: number };
+
+export type ResolvedVideo = {
+  siteId: string;
+  siteLabel: string;
+  videoId: string | null;
+  canonicalUrl: string;
+  title: string | null;
+  description: string | null;
+  uploader: string | null;
+  uploaderUrl: string | null;
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  thumbnail: string | null;
+  isLive: boolean;
+  ageLimit: number;
+  viewCount: number | null;
+  chapters: VideoChapter[];
+  heatmap: HeatPoint[];
+  hashtags: string[];
+};
+
+export type StudioResolve = {
+  video: ResolvedVideo;
+  limits: { maxClipSeconds: number; maxClipHeight: number };
+};
+
+export type StudioClipResult = {
+  jobId: number;
+  site: string;
+  url: string;
+  startMs: number;
+  endMs: number;
+  lengthMs: number;
 };
 
 export type SortKey = 'recent' | 'oldest' | 'popular' | 'random' | 'title';

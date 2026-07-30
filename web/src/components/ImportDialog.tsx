@@ -29,7 +29,7 @@ function guessSite(url: string): string | null {
 }
 
 export function ImportDialog({ open, onClose }: ImportDialogProps) {
-  const { categories, filters, notify, reportError, invalidateLibrary, refreshStatus, user } = useApp();
+  const { categories, filters, notify, reportError, invalidateLibrary, refreshStatus, user, navigate } = useApp();
 
   const [text, setText] = useState('');
   const [categoryId, setCategoryId] = useState<string>('');
@@ -162,6 +162,21 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
                 Instagram Reels, TikToks, YouTube, Reddit, X and direct video links. Paste several at once —
                 one per line.
               </p>
+
+              {/* Importing a 40-minute YouTube video whole is almost never what
+                  someone wants; offer the trim path at the moment they paste one. */}
+              {urls.some((url) => /youtu\.?be|youtube\.com/i.test(url)) && (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm import-dialog__studio"
+                  onClick={() => {
+                    onClose();
+                    navigate('studio');
+                  }}
+                >
+                  <span aria-hidden="true">✂</span> Trim it first in the clip studio
+                </button>
+              )}
             </div>
 
             {urls.length > 0 && (

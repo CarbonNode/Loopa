@@ -118,6 +118,17 @@ function buildConfig() {
     maxUrlBytes: envInt('MAX_URL_BYTES', 1024 * 1024 * 1024),
     enableUrlIngest: envBool('ENABLE_URL_INGEST', true),
     /**
+     * Longest range the clip studio will cut in one go.
+     *
+     * The point of the studio is grabbing the funny 15 seconds out of a
+     * three-hour stream. An unbounded range turns a cheap partial download
+     * into a full one, so it is capped rather than left to the person with
+     * the drag handle.
+     */
+    maxClipSeconds: envInt('MAX_CLIP_SECONDS', 600, { min: 5, max: 7200 }),
+    /** Cap the source resolution the studio pulls, so a 4K master isn't fetched for a 20s cut. */
+    maxClipHeight: envInt('MAX_CLIP_HEIGHT', 1080, { min: 240, max: 4320 }),
+    /**
      * Optional proxy for yt-dlp.
      *
      * TikTok blocks datacenter IP ranges outright ("Your IP address is

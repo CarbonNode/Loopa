@@ -23,6 +23,21 @@ export type Toast = {
 
 export type Theme = 'dark' | 'light';
 
+/**
+ * The app is one screen plus modals, so it has never needed a router — but
+ * the clip studio is a genuine destination: it holds an embedded player and
+ * an unsaved selection, so it must survive a refresh and be linkable. Two
+ * routes over the History API is the whole of it; pulling in a router library
+ * for this would be more code than the feature.
+ */
+export type Route = 'library' | 'studio';
+
+const ROUTE_PATHS: Record<Route, string> = { library: '/', studio: '/studio' };
+
+function routeFromPath(pathname: string): Route {
+  return pathname.replace(/\/+$/, '') === '/studio' ? 'studio' : 'library';
+}
+
 type AppState = {
   // Auth
   user: User | null;
@@ -51,6 +66,10 @@ type AppState = {
   // Lightbox
   activeClipId: string | null;
   openClip: (id: string | null) => void;
+
+  // Navigation
+  route: Route;
+  navigate: (route: Route) => void;
 
   // Chrome
   theme: Theme;
@@ -94,6 +113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<Set<string>>(() => new Set());
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
 
+  const [route, setRoute] = useState<Route>(() => routeFromPath(window.location.pathname));
   const [theme, setTheme] = usePersistedState<Theme>('loopa.theme', 'dark');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -153,6 +173,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const invalidateLibrary = useCallback(() => setLibraryVersion((v) => v + 1), []);
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+
+  const navigate = useCallback((next: Route) => {
+    const path = ROUTE_PATHS[next];
+    if (window.location.pathname !== path) window.history.pushState({}, '', path);
+    setRoute(next);
+    // A destination change on mobile has to close the drawer, or the new page
+    // renders behind it and reads as a dead tap.
+    setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => setRoute(routeFromPath(window.location.pathname));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   // ── Auth ─────────────────────────────────────────────────────────────────
 
@@ -321,6 +358,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isSelected,
       activeClipId,
       openClip: setActiveClipId,
+      route,
+      navigate,
       theme,
       toggleTheme,
       sidebarOpen,
@@ -337,7 +376,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       categories, refreshCategories, status, refreshStatus,
       filters, setFilters, resetFilters,
       selection, toggleSelected, clearSelection, isSelected,
-      activeClipId, theme, toggleTheme, sidebarOpen,
+      activeClipId, route, navigate, theme, toggleTheme, sidebarOpen,
       toasts, notify, dismissToast, reportError,
       libraryVersion, invalidateLibrary,
     ],

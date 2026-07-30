@@ -1,7 +1,10 @@
 import { db } from '../db/index.ts';
 import { newToken } from '../util/ids.ts';
 
-export type JobType = 'fetch_url' | 'derive' | 'tag';
+export type JobType = 'fetch_url' | 'clip_url' | 'derive' | 'tag';
+
+/** Job types that download from a link, and so need a placeholder in the grid. */
+const DOWNLOAD_TYPES = ['fetch_url', 'clip_url'] as const;
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed';
 
 export type Job = {
@@ -264,6 +267,8 @@ export type PendingImport = {
   /** When a retry is scheduled, so the UI can say "retrying shortly". */
   runAfter: number;
   createdAt: number;
+  /** Set by the studio, so a pending cut reads "0:30 – 0:38" and not a raw id. */
+  label: string | null;
 };
 
 /**
@@ -275,15 +280,16 @@ export type PendingImport = {
  * entry.
  */
 export function pendingImports(): PendingImport[] {
+  const placeholders = DOWNLOAD_TYPES.map(() => '?').join(', ');
   const rows = db
     .prepare(
       `SELECT id, payload, status, attempts, max_attempts, last_error, run_after, created_at
          FROM jobs
-        WHERE type = 'fetch_url' AND status IN ('queued', 'running')
+        WHERE type IN (${placeholders}) AND status IN ('queued', 'running')
         ORDER BY id ASC
         LIMIT 50`,
     )
-    .all() as Array<{
+    .all(...DOWNLOAD_TYPES) as Array<{
     id: number;
     payload: string;
     status: JobStatus;
@@ -296,9 +302,11 @@ export function pendingImports(): PendingImport[] {
 
   return rows.map((row) => {
     let url = '';
+    let label: string | null = null;
     try {
-      const parsed = JSON.parse(row.payload) as { url?: unknown };
+      const parsed = JSON.parse(row.payload) as { url?: unknown; label?: unknown };
       if (typeof parsed.url === 'string') url = parsed.url;
+      if (typeof parsed.label === 'string' && parsed.label.trim()) label = parsed.label.trim();
     } catch {
       // A malformed payload still deserves a placeholder; it just has no URL
       // to label it with.
@@ -313,14 +321,19 @@ export function pendingImports(): PendingImport[] {
       lastError: row.last_error,
       runAfter: row.run_after,
       createdAt: row.created_at,
+      label,
     };
   });
 }
 
 export function cancelImport(jobId: number): boolean {
+  const placeholders = DOWNLOAD_TYPES.map(() => '?').join(', ');
   const result = db
-    .prepare("UPDATE jobs SET status = 'failed', last_error = 'Cancelled.', updated_at = ? WHERE id = ? AND type = 'fetch_url' AND status = 'queued'")
-    .run(Date.now(), jobId);
+    .prepare(
+      `UPDATE jobs SET status = 'failed', last_error = 'Cancelled.', updated_at = ?
+        WHERE id = ? AND type IN (${placeholders}) AND status = 'queued'`,
+    )
+    .run(Date.now(), jobId, ...DOWNLOAD_TYPES);
   return result.changes > 0;
 }
 

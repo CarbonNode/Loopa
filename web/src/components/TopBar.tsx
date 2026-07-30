@@ -21,7 +21,8 @@ type TopBarProps = {
 };
 
 export function TopBar({ onOpenImport, onOpenSettings, onPickFiles }: TopBarProps) {
-  const { filters, setFilters, user, signOut, status, theme, toggleTheme, sidebarOpen, setSidebarOpen } = useApp();
+  const { filters, setFilters, user, signOut, status, theme, toggleTheme, sidebarOpen, setSidebarOpen, route, navigate } =
+    useApp();
 
   const [suggestions, setSuggestions] = useState<TagWithCount[]>([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
@@ -156,6 +157,9 @@ export function TopBar({ onOpenImport, onOpenSettings, onPickFiles }: TopBarProp
           spellCheck={false}
           onChange={(event) => {
             setFilters({ query: event.target.value });
+            // Searching from another screen means "show me the library" —
+            // leaving the results behind the studio makes the field look dead.
+            if (route !== 'library') navigate('library');
             setSuggestOpen(true);
             setHighlighted(-1);
           }}

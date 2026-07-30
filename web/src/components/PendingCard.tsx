@@ -77,8 +77,10 @@ export function PendingCard({ item, onCancel }: { item: PendingImport; onCancel:
       </div>
 
       <div className="pending-card__body">
+        {/* A studio cut carries its own range label; only a whole-post import
+            has to fall back to guessing one from the URL. */}
         <p className="pending-card__label truncate" title={item.url}>
-          {labelOf(item.url)}
+          {item.label ?? labelOf(item.url)}
         </p>
         {/* The previous attempt's error, so a retry loop is not silent. */}
         {item.lastError && retrying ? (

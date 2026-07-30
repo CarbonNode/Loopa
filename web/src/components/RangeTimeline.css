@@ -1,0 +1,293 @@
+/*
+ * Trim selector: overview strip, zoomable detail track, ruler, zoom controls.
+ *
+ * The track is deliberately tall (56px, 72px on touch). A trim handle is a
+ * precision control people drag repeatedly, and a progress-bar-height target
+ * makes that a fight — especially on a phone.
+ */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Nothing here may push the studio wider than its column: the track is
+     percentage-positioned, and a handle sitting at 100% would otherwise
+     overhang and produce a page-wide horizontal scrollbar. */
+  min-width: 0;
+}
+
+.timeline--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ── Overview ─────────────────────────────────────────────────────────────
+ * Only rendered while zoomed in, because at full zoom it would be an exact
+ * duplicate of the track below it.
+ */
+.timeline__overview {
+  position: relative;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.timeline__overview:hover {
+  border-color: var(--border-default);
+}
+
+.timeline__overview:active {
+  cursor: grabbing;
+}
+
+.timeline__overview-selection {
+  position: absolute;
+  inset-block: 0;
+  background: var(--accent-subtle);
+  border-inline: 1px solid var(--accent-border);
+  pointer-events: none;
+}
+
+.timeline__overview-window {
+  position: absolute;
+  inset-block: 0;
+  min-width: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+:root[data-theme='light'] .timeline__overview-window {
+  background: rgba(16, 20, 32, 0.06);
+}
+
+/* ── Detail track ─────────────────────────────────────────────────────── */
+
+.timeline__track {
+  position: relative;
+  height: 56px;
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  cursor: crosshair;
+  /* Without this the browser claims horizontal drags for page scrolling and
+     the handles cannot be moved by touch at all. */
+  touch-action: none;
+  user-select: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.timeline__track:hover {
+  border-color: var(--border-default);
+}
+
+.timeline__track:focus-within {
+  border-color: var(--accent-border);
+}
+
+.timeline__track.is-dragging {
+  cursor: grabbing;
+}
+
+/* "Most replayed", where the platform gives us one. On a long video this is
+   the fastest route to the bit worth clipping. */
+.timeline__heat {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.timeline__heat path {
+  fill: var(--info-subtle);
+  stroke: var(--info);
+  stroke-width: 0.6;
+  stroke-opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.timeline__chapter-tick {
+  position: absolute;
+  inset-block: 0;
+  width: 1px;
+  background: var(--border-strong);
+  pointer-events: none;
+}
+
+.timeline__shoulder {
+  position: absolute;
+  inset-block: 0;
+  background: color-mix(in srgb, var(--bg-void) 62%, transparent);
+  pointer-events: none;
+}
+
+.timeline__selection {
+  position: absolute;
+  inset-block: 0;
+  background: var(--accent-subtle);
+  border-block: 1px solid var(--accent-border);
+  cursor: grab;
+  touch-action: none;
+}
+
+.timeline__selection:active {
+  cursor: grabbing;
+}
+
+/* ── Handles ──────────────────────────────────────────────────────────────
+ * Each handle sits *outside* its edge — start to the left of the in-point,
+ * end to the right of the out-point. At a minimum-length selection they end
+ * up adjacent rather than stacked, so neither becomes ungrabbable.
+ */
+.timeline__handle {
+  position: absolute;
+  inset-block: 0;
+  width: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  cursor: ew-resize;
+  touch-action: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    width var(--duration-fast) var(--ease-out);
+}
+
+.timeline__handle--start {
+  transform: translateX(-100%);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.timeline__handle--end {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* Flipped to the inside at the track's ends, where sitting outside would put
+   the handle beyond the clip boundary and out of reach. */
+.timeline__handle--start.is-flipped {
+  transform: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.timeline__handle--end.is-flipped {
+  transform: translateX(-100%);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.timeline__handle:hover,
+.timeline__handle:active {
+  background: var(--accent-hover);
+}
+
+.timeline__handle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+  z-index: var(--z-sticky);
+}
+
+.timeline__grip {
+  width: 2px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-contrast);
+  opacity: 0.75;
+}
+
+.timeline__playhead {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-void) 70%, transparent);
+  pointer-events: none;
+  /* Position updates arrive on a timer rather than every frame; a short
+     linear transition interpolates between them so the playhead glides
+     instead of ticking. */
+  transition: left 120ms linear;
+}
+
+.timeline__playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  transform: translateX(-50%);
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  background: var(--text-primary);
+}
+
+/* ── Ruler ────────────────────────────────────────────────────────────── */
+
+.timeline__ruler {
+  position: relative;
+  height: 14px;
+  font-size: var(--text-2xs);
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  /* Labels at the extremes are translated half their own width and would
+     otherwise widen the page. */
+  overflow: hidden;
+}
+
+.timeline__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Zoom row ─────────────────────────────────────────────────────────── */
+
+.timeline__zoom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.timeline__zoom-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline__zoom-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* Coarse pointers get a taller track and wider handles: a 14px target is a
+   comfortable mouse grab and an impossible thumb one. */
+@media (pointer: coarse) {
+  .timeline__track {
+    height: 72px;
+  }
+
+  .timeline__handle {
+    width: 22px;
+  }
+
+  .timeline__grip {
+    height: 24px;
+  }
+}

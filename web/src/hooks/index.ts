@@ -218,6 +218,35 @@ export function usePersistedState<T>(key: string, initial: T): [T, (value: T) =>
   return [value, update];
 }
 
+/**
+ * Track an element's rendered width.
+ *
+ * A timeline has to decide how many tick labels fit before it can draw them,
+ * and that is a pixel question no media query can answer — the same component
+ * is full-bleed on desktop and inset in a drawer on mobile.
+ */
+export function useElementWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
+  const ref = useRef<T | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setWidth(entry.contentRect.width);
+    });
+
+    observer.observe(element);
+    setWidth(element.getBoundingClientRect().width);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width];
+}
+
 /** True once the media query matches; re-evaluates on change. */
 export function useMediaQuery(queryString: string): boolean {
   const [matches, setMatches] = useState(() =>
