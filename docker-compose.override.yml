@@ -1,0 +1,15 @@
+# Development / hot-deploy overlay.
+#
+# Mounts ONLY source and built output — never node_modules. A host
+# node_modules mount would shadow the image's Linux-native better-sqlite3 with
+# whatever the host built, which breaks the container.
+#
+# With this in place a code change deploys as: git pull → restart. No rebuild,
+# unless dependencies or the Dockerfile itself changed.
+services:
+  loopa:
+    volumes:
+      - ./server/src:/app/server/src:ro
+      - ./web/dist:/app/web/dist:ro
+      - ${LOOPA_MEDIA_HOST_DIR:-./media}:/app/media
+      - ${LOOPA_DATA_HOST_DIR:-./data}:/app/data

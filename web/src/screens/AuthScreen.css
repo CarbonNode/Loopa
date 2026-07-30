@@ -1,0 +1,144 @@
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+  /* A soft off-centre glow so the panel sits on something, rather than
+     floating on a flat void. */
+  background:
+    radial-gradient(1000px 520px at 22% -8%, rgba(255, 107, 74, 0.1), transparent 62%),
+    radial-gradient(760px 420px at 82% 108%, rgba(76, 194, 241, 0.07), transparent 60%),
+    var(--bg-base);
+}
+
+.auth__panel {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-8);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  animation: rise-in var(--duration-slow) var(--ease-out);
+}
+
+.auth__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.auth__logo {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.auth__wordmark {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.auth__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.auth__title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.auth__body {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth__optional {
+  font-weight: var(--weight-normal);
+  text-transform: none;
+  letter-spacing: var(--tracking-normal);
+  color: var(--text-tertiary);
+}
+
+.auth__hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-snug);
+}
+
+.auth__hint code {
+  padding: 1px 4px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* Invite codes are read aloud and retyped, so give them monospace and
+   generous tracking to keep characters distinguishable. */
+.auth__code {
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.auth__error-hint {
+  display: block;
+  margin-top: var(--space-1);
+  opacity: 0.85;
+  font-size: var(--text-xs);
+}
+
+.auth__submit {
+  width: 100%;
+  min-height: 42px;
+  margin-top: var(--space-1);
+}
+
+.auth__switch {
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.auth__link {
+  /* inline-block with padding so the tap target clears 24px without the
+     underline drifting away from the text. */
+  display: inline-block;
+  padding: var(--space-1) var(--space-1);
+  margin: calc(-1 * var(--space-1)) 0;
+  color: var(--accent);
+  font-weight: var(--weight-medium);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth__link:hover {
+  color: var(--accent-hover);
+}
+
+@media (max-width: 480px) {
+  .auth {
+    padding: var(--space-4) var(--space-3);
+    /* Top-aligned on a phone: centring pushes the form under the keyboard. */
+    place-items: start center;
+    padding-top: var(--space-8);
+  }
+
+  .auth__panel {
+    padding: var(--space-5);
+  }
+}

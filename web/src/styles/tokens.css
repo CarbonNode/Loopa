@@ -1,0 +1,209 @@
+/*
+ * Loopa design tokens.
+ *
+ * Every colour, radius, shadow and duration in the app comes from here.
+ * Component CSS must never hardcode a hex value or a near-duplicate grey —
+ * if a shade is missing, add it here rather than inventing it inline.
+ */
+
+:root {
+  /* ── Palette ───────────────────────────────────────────────────────────
+   * A cool near-black base so thumbnails (which are warm and saturated far
+   * more often than not) read as the brightest thing on screen.
+   */
+  --bg-void: #08090d;
+  --bg-base: #0c0d12;
+  --bg-sunken: #0a0b0f;
+  --bg-raised: #14161d;
+  --bg-overlay: #1a1d26;
+  --bg-hover: #1f232e;
+  --bg-active: #262b38;
+
+  --border-subtle: #1e222c;
+  --border-default: #2a2f3c;
+  --border-strong: #3a4152;
+
+  --text-primary: #eef0f6;
+  --text-secondary: #a3aab9;
+  --text-tertiary: #6f7789;
+  --text-disabled: #4a5162;
+
+  /* Coral rather than the default-issue blue or purple: it reads as playful,
+   * and it stays distinct from the per-category accent colours. */
+  --accent: #ff6b4a;
+  --accent-hover: #ff8266;
+  --accent-active: #e85535;
+  --accent-subtle: rgba(255, 107, 74, 0.14);
+  --accent-border: rgba(255, 107, 74, 0.42);
+  --accent-glow: rgba(255, 107, 74, 0.28);
+  --accent-contrast: #14161d;
+
+  --success: #3ec9a7;
+  --success-subtle: rgba(62, 201, 167, 0.14);
+  --warning: #e2a33c;
+  --warning-subtle: rgba(226, 163, 60, 0.14);
+  --danger: #f2555a;
+  --danger-subtle: rgba(242, 85, 90, 0.14);
+  --info: #4cc2f1;
+  --info-subtle: rgba(76, 194, 241, 0.14);
+
+  /* ── Type ──────────────────────────────────────────────────────────────
+   * A grotesque stack that resolves to the platform's best UI face. Inter and
+   * Roboto are deliberately absent — they are the house style of generated
+   * interfaces and make everything look the same.
+   */
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI',
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.875rem;
+  --text-2xl: 2.5rem;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.55;
+
+  /* Tightening large text and loosening small text is most of what separates
+   * typography that looks considered from typography that looks default. */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;
+  --tracking-caps: 0.08em;
+
+  /* ── Space ─────────────────────────────────────────────────────────────
+   * A 4px rhythm. Every margin and padding is one of these.
+   */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ── Shape ─────────────────────────────────────────────────────────────*/
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* ── Elevation ─────────────────────────────────────────────────────────
+   * Layered rather than single-blur: a tight contact shadow plus a wide
+   * ambient one is what stops cards looking like they float in fog.
+   */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.4), 0 32px 72px rgba(0, 0, 0, 0.55);
+  --shadow-accent: 0 6px 24px var(--accent-glow);
+
+  /* ── Motion ────────────────────────────────────────────────────────────
+   * Fast enough to feel immediate, slow enough to read as motion. The
+   * overshoot curve is reserved for things that appear.
+   */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0.05, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --duration-instant: 80ms;
+  --duration-fast: 130ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
+
+  /* ── Layout ────────────────────────────────────────────────────────────*/
+  --sidebar-width: 268px;
+  --topbar-height: 60px;
+  --grid-min-card: 240px;
+  --content-max: 2200px;
+
+  /* ── Layers ────────────────────────────────────────────────────────────
+   * Named so nothing ever needs an arbitrary z-index: every stacking
+   * decision is made here, once, in visible order.
+   */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-sidebar: 20;
+  --z-topbar: 30;
+  --z-dropdown: 40;
+  --z-drawer: 50;
+  --z-modal: 60;
+  --z-dropzone: 70;
+  --z-toast: 80;
+}
+
+/*
+ * Light theme.
+ *
+ * A media library is usually better dark, so this is a considered
+ * alternative rather than a mirror-image: surfaces stay warm-neutral so
+ * thumbnails do not look washed out against pure white.
+ */
+:root[data-theme='light'] {
+  --bg-void: #eceef4;
+  --bg-base: #f7f7fa;
+  --bg-sunken: #f0f1f6;
+  --bg-raised: #ffffff;
+  --bg-overlay: #ffffff;
+  --bg-hover: #f0f1f6;
+  --bg-active: #e5e7f0;
+
+  --border-subtle: #e4e6ee;
+  --border-default: #d3d7e2;
+  --border-strong: #b6bccb;
+
+  --text-primary: #14161d;
+  --text-secondary: #4e5566;
+  --text-tertiary: #757d90;
+  --text-disabled: #a2a9b8;
+
+  --accent: #e8471f;
+  --accent-hover: #f65a33;
+  --accent-active: #cc3a14;
+  --accent-subtle: rgba(232, 71, 31, 0.1);
+  --accent-border: rgba(232, 71, 31, 0.4);
+  --accent-glow: rgba(232, 71, 31, 0.2);
+  --accent-contrast: #ffffff;
+
+  --success: #14876c;
+  --warning: #a9700a;
+  --danger: #cf2e33;
+  --info: #1673a3;
+
+  --shadow-sm: 0 1px 2px rgba(16, 20, 32, 0.07);
+  --shadow-md: 0 2px 4px rgba(16, 20, 32, 0.06), 0 6px 16px rgba(16, 20, 32, 0.08);
+  --shadow-lg: 0 4px 8px rgba(16, 20, 32, 0.08), 0 16px 40px rgba(16, 20, 32, 0.12);
+  --shadow-xl: 0 8px 16px rgba(16, 20, 32, 0.1), 0 32px 72px rgba(16, 20, 32, 0.16);
+}
+
+/*
+ * Respect a system-level request for less motion.
+ *
+ * Not set to 0s: an instant state change can be more disorienting than a
+ * short one. 1ms keeps transitions functional while removing the movement.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 1ms;
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+    --duration-slow: 1ms;
+  }
+}

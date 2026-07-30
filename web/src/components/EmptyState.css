@@ -1,0 +1,52 @@
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  /* Sits in the optical centre of the content area rather than the exact
+     middle, which reads as too low. */
+  min-height: min(52vh, 440px);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  animation: rise-in var(--duration-slow) var(--ease-out);
+}
+
+.empty-state__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-1);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: var(--shadow-md);
+}
+
+.empty-state__title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  /* Wrap rather than ellipsise: a search query in the title must stay
+     readable however long it is. */
+  max-width: 34ch;
+  overflow-wrap: anywhere;
+}
+
+.empty-state__body {
+  max-width: 46ch;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+  margin-top: var(--space-2);
+}

@@ -1,0 +1,44 @@
+services:
+  loopa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: loopa:latest
+    container_name: loopa
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # Bound to loopback: Cloudflare Tunnel is the only public path in.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # The library. Override LOOPA_MEDIA_HOST_DIR to point at a big disk —
+      # on super_server that means something like X:/loopa-media.
+      - ${LOOPA_MEDIA_HOST_DIR:-./media}:/app/media
+      - ${LOOPA_DATA_HOST_DIR:-./data}:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Matches the Dockerfile: type-stripping ~200 modules at boot measured
+      # ~25s on a slow filesystem, and a short window restart-loops a healthy
+      # server that is merely still starting.
+      start_period: 90s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: loopa-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      # Token from the Cloudflare Zero Trust dashboard for the Loopa tunnel.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      loopa:
+        condition: service_healthy
+    network_mode: "service:loopa"

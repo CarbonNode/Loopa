@@ -1,0 +1,133 @@
+.app-boot {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  background: var(--bg-base);
+}
+
+.app-boot .spinner {
+  width: 26px;
+  height: 26px;
+  border-width: 2.5px;
+}
+
+/* ── Shell ───────────────────────────────────────────────────────────────
+ * The sidebar is sticky and the main column scrolls with the page, so the
+ * top bar and sidebar stay put without a nested scroll container (which
+ * breaks browser find-in-page and scroll restoration).
+ */
+
+.app-shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: calc(100dvh - var(--topbar-height));
+}
+
+.app-main {
+  flex: 1 1 auto;
+  /* Without this a wide grid child refuses to shrink and the whole page
+     gains a horizontal scrollbar. */
+  min-width: 0;
+}
+
+.app-content {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-5) var(--space-12);
+}
+
+/* ── Heading ─────────────────────────────────────────────────────────────*/
+
+.app-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  min-height: 34px;
+}
+
+.app-heading__text {
+  min-width: 0;
+}
+
+.app-heading__title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  /* A long search query in the heading must wrap, not overflow. */
+  overflow-wrap: anywhere;
+}
+
+.app-heading__subtitle {
+  margin-top: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  max-width: 68ch;
+}
+
+/* ── Selection bar ───────────────────────────────────────────────────────
+ * Centred at the bottom, deliberately clear of the toast stack (right) and
+ * the upload tray (left).
+ */
+
+.selection-bar {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-xl);
+  font-size: var(--text-sm);
+  animation: rise-in var(--duration-normal) var(--ease-spring);
+  max-width: calc(100vw - var(--space-8));
+}
+
+.selection-bar__count {
+  font-weight: var(--weight-semibold);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.selection-bar__hint {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  .app-content {
+    padding: var(--space-4) var(--space-4) var(--space-16);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-content {
+    padding: var(--space-4) var(--space-3) var(--space-16);
+  }
+
+  .app-heading {
+    margin-bottom: var(--space-4);
+  }
+
+  /* The hint costs more width than it earns on a phone. */
+  .selection-bar__hint {
+    display: none;
+  }
+
+  .selection-bar {
+    /* Above the upload tray and toasts, which also live at the bottom. */
+    bottom: calc(var(--space-4) + 56px);
+  }
+}
