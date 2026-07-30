@@ -245,12 +245,19 @@ export const api = {
   deleteCookies: (site: string) =>
     request<{ ok: boolean; cookies: Record<string, boolean> }>(`/api/ingest/cookies/${site}`, { method: 'DELETE' }),
 
-  /** Save a pasted session token; the server synthesises the cookie file. */
-  saveSession: (site: string, values: Record<string, string>) =>
-    request<{ ok: boolean; site: string; cookies: Record<string, boolean>; written: string[] }>(
-      `/api/ingest/session/${site}`,
-      { method: 'POST', body: JSON.stringify(values) },
-    ),
+  /**
+   * Save a session from whatever the user managed to copy — a cURL command,
+   * a cookie header, a cookies.txt, an extension's JSON export, or the bare
+   * value. The server detects the format.
+   */
+  saveSession: (site: string, blob: string) =>
+    request<{
+      ok: boolean;
+      site: string;
+      format: string;
+      written: string[];
+      cookies: Record<string, boolean>;
+    }>(`/api/ingest/session/${site}`, { method: 'POST', body: JSON.stringify({ blob }) }),
 
   /** Dry-run a link through the real downloader. */
   probe: (url: string) =>

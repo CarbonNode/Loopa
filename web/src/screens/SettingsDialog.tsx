@@ -20,6 +20,7 @@ const COOKIE_SITES = [
     id: 'instagram',
     label: 'Instagram',
     cookie: 'sessionid',
+    domain: 'instagram.com',
     required: true,
     note: 'Required. Instagram refuses almost all Reels without a signed-in session.',
   },
@@ -27,6 +28,7 @@ const COOKIE_SITES = [
     id: 'tiktok',
     label: 'TikTok',
     cookie: 'sessionid',
+    domain: 'tiktok.com',
     required: false,
     note: 'Usually optional — helps with rate limits and private posts.',
   },
@@ -34,6 +36,7 @@ const COOKIE_SITES = [
     id: 'twitter',
     label: 'X / Twitter',
     cookie: 'auth_token',
+    domain: 'x.com',
     required: true,
     note: 'Required for most video posts.',
   },
@@ -41,6 +44,7 @@ const COOKIE_SITES = [
     id: 'youtube',
     label: 'YouTube',
     cookie: 'SID',
+    domain: 'youtube.com',
     required: false,
     note: 'Only for age-restricted or members-only videos.',
   },
@@ -314,10 +318,9 @@ function IngestTab({
       <div className="settings__group">
         <h3 className="settings__group-title">Site sign-in</h3>
         <p className="settings__note">
-          Some sites only serve videos to a signed-in session. Paste the one cookie that carries it — in your
-          browser on that site, open DevTools → Application → Cookies and copy the value shown below. Nothing
-          is sent back to the browser once saved, and you can paste the whole <code>name=value</code> pair if
-          that is easier.
+          Some sites only serve videos to a signed-in session. Hit <em>Sign in</em> below and paste whatever is
+          easiest to copy out of your browser — a <code>Copy as cURL</code>, a cookie header, a cookies.txt, or
+          just the raw value. Loopa works out which it is and keeps only the cookies that site needs.
         </p>
 
         <ul className="settings__cookies">
@@ -389,15 +392,25 @@ function SiteAuthRow({
 
     setSaving(true);
     try {
-      const result = await api.saveSession(site.id, { [site.cookie]: value });
+      const result = await api.saveSession(site.id, value);
       onChanged(result.cookies);
       // Never keep a bearer credential in component state longer than needed.
       setValue('');
       setOpen(false);
+
+      const described = {
+        curl: 'from the cURL command',
+        json: 'from the JSON export',
+        netscape: 'from the cookies.txt',
+        header: 'from the cookie header',
+        pair: '',
+        value: '',
+      }[result.format] ?? '';
+
       notify({
         kind: 'success',
-        message: `${site.label} sign-in saved.`,
-        hint: 'Use "Test a link" below to confirm it works.',
+        message: `${site.label} signed in — picked up ${result.written.join(', ')} ${described}`.trim(),
+        hint: 'Confirm it works: paste a link into "Test a link" below.',
       });
     } catch (error) {
       reportError(error, `Could not save the ${site.label} session.`);
@@ -444,34 +457,57 @@ function SiteAuthRow({
 
       {isAdmin && open && (
         <form className="settings__session" onSubmit={save}>
+          {/*
+            Instagram's sessionid is HttpOnly, so no bookmarklet can read it —
+            it has to be copied out of the browser by hand. Rather than demand
+            one exact format, take anything a copy plausibly produces and work
+            it out server-side.
+          */}
+          <ol className="settings__steps">
+            <li>
+              Open <strong>{site.label}</strong> in a browser where you are signed in.
+            </li>
+            <li>
+              Press <kbd>F12</kbd> (or <kbd>⌥</kbd><kbd>⌘</kbd><kbd>I</kbd>) to open DevTools.
+            </li>
+            <li>
+              <strong>Easiest:</strong> the <em>Network</em> tab → reload the page → right-click any request →{' '}
+              <em>Copy</em> → <em>Copy as cURL</em>. Paste the whole thing below.
+            </li>
+            <li>
+              Or: <em>Application</em> → <em>Cookies</em> → <code>{site.domain}</code> → copy the value of{' '}
+              <code>{site.cookie}</code>.
+            </li>
+          </ol>
+
           <label className="settings__session-label" htmlFor={`session-${site.id}`}>
-            Paste the <code>{site.cookie}</code> cookie value
+            Paste it here — a cURL command, a cookie header, a cookies.txt, or just the value
           </label>
-          <div className="settings__session-row">
-            <input
-              id={`session-${site.id}`}
-              className="input settings__session-input"
-              // type=password so a session token is not left on screen in a
-              // shared room or a screen share.
-              type="password"
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              placeholder={`${site.cookie}=…`}
-              autoComplete="off"
-              spellCheck={false}
-              autoFocus
-            />
+
+          <textarea
+            id={`session-${site.id}`}
+            className="input settings__session-input"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder={`curl 'https://www.${site.id}.com/…' -H 'cookie: ${site.cookie}=…'\n\n…or just the ${site.cookie} value on its own`}
+            rows={4}
+            autoComplete="off"
+            spellCheck={false}
+            autoFocus
+          />
+
+          <div className="settings__session-actions">
             <button type="submit" className="btn btn--primary btn--sm" disabled={!value.trim() || saving}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? 'Saving…' : 'Save session'}
+            </button>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={onPickFile}>
+              Upload a cookies.txt instead
             </button>
           </div>
 
-          <p className="settings__note">
-            Prefer a file? You can still{' '}
-            <button type="button" className="settings__inline-link" onClick={onPickFile}>
-              upload a cookies.txt
-            </button>{' '}
-            instead.
+          <p className="settings__note settings__session-privacy">
+            Stored on the server only, readable by nobody but the server process, and never sent back to a
+            browser. A cURL paste can contain other cookies — only the ones {site.label} needs are kept.
           </p>
 
           <input

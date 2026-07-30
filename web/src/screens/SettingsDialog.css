@@ -250,9 +250,81 @@
   font-size: var(--text-sm);
 }
 
-.settings__session-input {
+textarea.settings__session-input {
   font-family: var(--font-mono);
-  letter-spacing: 0.06em;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  resize: vertical;
+  min-height: 84px;
+  /* A cURL paste is one enormous unbroken line; wrap it rather than scroll
+     the dialog sideways. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── Step-by-step ────────────────────────────────────────────────────────*/
+
+.settings__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-8);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  list-style: decimal;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+}
+
+.settings__steps::marker,
+.settings__steps li::marker {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings__steps code {
+  padding: 1px 4px;
+  background: var(--bg-active);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.settings__steps kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-default);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--text-primary);
+}
+
+.settings__steps em {
+  color: var(--text-primary);
+  font-style: normal;
+  font-weight: var(--weight-medium);
+}
+
+.settings__session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.settings__session-privacy {
+  padding: var(--space-2) var(--space-3);
+  background: var(--success-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
 }
 
 .settings__inline-link {

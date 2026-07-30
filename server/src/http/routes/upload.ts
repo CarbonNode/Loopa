@@ -7,6 +7,7 @@ import { AuthError } from '../../auth/service.ts';
 import { isFavorited, toClipView } from '../../clips/repository.ts';
 import { config } from '../../config.ts';
 import { enqueueUrlIngest, ingestLocalFile } from '../../media/ingest.ts';
+import { parseCookieBlob } from '../../media/cookieblob.ts';
 import { extensionOf } from '../../media/storage.ts';
 import {
   IngestError,
@@ -236,17 +237,35 @@ export async function registerUploadRoutes(app: FastifyInstance): Promise<void> 
       throw new AuthError(`Session tokens are not supported for "${site}".`);
     }
 
-    const values: Record<string, string> = {};
-    for (const [key, value] of Object.entries(body)) {
-      if (typeof value === 'string' && value.trim()) {
-        // People paste `sessionid=abc; Path=/` straight out of DevTools as
-        // often as they paste the bare value. Accept both.
-        values[key] = value.trim().replace(/^[^=]+=/, '').replace(/;.*$/, '').trim();
+    // One field, any format. parseCookieBlob works out whether it is a cURL
+    // command, a cookie header, a cookies.txt, an extension's JSON export, or
+    // just the bare value.
+    const blob = typeof body.blob === 'string' ? body.blob : null;
+
+    let values: Record<string, string>;
+    let format = 'value';
+
+    if (blob) {
+      const parsed = parseCookieBlob(blob);
+      if (!parsed) {
+        throw new AuthError('Could not find any cookies in that. Paste the value, a cookie header, or a "Copy as cURL".');
+      }
+      values = parsed.values;
+      format = parsed.format;
+    } else {
+      values = {};
+      for (const [key, value] of Object.entries(body)) {
+        if (typeof value === 'string' && value.trim()) values[key] = value.trim();
       }
     }
 
     const { written } = await writeSessionCookies(site, values);
-    return { ok: true, site, cookies: await cookieStatus(), written };
+
+    // Deliberately no auto-verification against a hardcoded post: any
+    // specific Reel can be deleted or go private, and then a perfectly good
+    // session reports itself broken. The client prompts for a link instead,
+    // which tests the real extractor against something the user cares about.
+    return { ok: true, site, format, written, cookies: await cookieStatus() };
   });
 
   /**
