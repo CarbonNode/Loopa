@@ -15,7 +15,8 @@
     "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "npm --workspace server run dev",
     "dev:web": "npm --workspace web run dev",
-    "build": "npm --workspace server run build && npm --workspace web run build",
+    "_comment_build": "Only the web app builds. The server runs TypeScript directly via Node 22 type stripping, so it has no build step by design.",
+    "build": "npm --workspace web run build",
     "build:web": "npm --workspace web run build",
     "start": "npm --workspace server run start",
     "typecheck": "npm --workspace server run typecheck && npm --workspace web run typecheck"

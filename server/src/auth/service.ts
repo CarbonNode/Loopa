@@ -359,3 +359,39 @@ export function consumeSetupToken(candidate: string): void {
 export function isSetupPending(): boolean {
   return countUsers() === 0;
 }
+
+/**
+ * Create the first admin from the environment, if configured.
+ *
+ * The setup-token flow assumes a human can read the server log. That does not
+ * hold for an automated deploy, a container someone else operates, or a demo —
+ * so LOOPA_BOOTSTRAP_USER / LOOPA_BOOTSTRAP_PASSWORD provision the admin
+ * directly.
+ *
+ * Only ever runs when there are no accounts at all, so it cannot overwrite an
+ * existing install or reset a password if the vars are left set.
+ */
+export async function bootstrapFromEnv(): Promise<string | null> {
+  if (countUsers() > 0) return null;
+
+  const username = process.env.LOOPA_BOOTSTRAP_USER?.trim();
+  const password = process.env.LOOPA_BOOTSTRAP_PASSWORD;
+  if (!username || !password) return null;
+
+  try {
+    const user = await createUser({
+      username,
+      password,
+      displayName: process.env.LOOPA_BOOTSTRAP_NAME?.trim() || username,
+      role: 'admin',
+    });
+    setupToken = null;
+    return user.username;
+  } catch (error) {
+    // A rejected password or username is a configuration mistake worth
+    // surfacing, but it must not stop the server booting — the setup-token
+    // path still works.
+    console.error(`[auth] bootstrap from environment failed: ${(error as Error).message}`);
+    return null;
+  }
+}

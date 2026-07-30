@@ -5,11 +5,11 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyError } from 'fastify';
 import { taggerStatus } from './ai/index.ts';
-import { AuthError } from './auth/service.ts';
+import { AuthError, bootstrapFromEnv } from './auth/service.ts';
 import { getClip } from './clips/repository.ts';
 import { config } from './config.ts';
 import { closeDatabase, runMaintenance, runMigrations } from './db/index.ts';
-import { jobHandlers } from './jobs/handlers.ts';
+import { ensureStarterCategories, jobHandlers } from './jobs/handlers.ts';
 import { WorkerPool } from './jobs/queue.ts';
 import { absolutePath, assertInsideMediaDir } from './media/storage.ts';
 import { IngestError } from './media/urlingest.ts';
@@ -220,6 +220,13 @@ async function main(): Promise<void> {
   }
   if (config.sessionSecretGenerated) {
     app.log.warn('SESSION_SECRET is unset; using a generated one from data/.session-secret. Set it explicitly in .env.');
+  }
+
+  // Before listening, so the instance is never briefly reachable unclaimed.
+  const bootstrapped = await bootstrapFromEnv();
+  if (bootstrapped) {
+    ensureStarterCategories(null);
+    app.log.info(`Created the admin account "${bootstrapped}" from LOOPA_BOOTSTRAP_USER.`);
   }
 
   await app.listen({ port: config.port, host: config.host });
