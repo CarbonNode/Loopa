@@ -26,3 +26,7 @@ coverage/
 
 # Forge's raw sync output — duplicates assets/concepts/ with generated filenames
 assets/forge/
+
+# Vendored standalone yt-dlp zipapp — a 3MB binary, fetched not committed.
+# See README: needed on hosts whose sandbox cannot see ~/.local/bin.
+vendor/
