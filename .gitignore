@@ -1,0 +1,28 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Runtime data — never commit the library or the database
+data/
+media/
+*.db
+*.db-wal
+*.db-shm
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Test artifacts
+screenshots/
+coverage/
+
+# Forge's raw sync output — duplicates assets/concepts/ with generated filenames
+assets/forge/
