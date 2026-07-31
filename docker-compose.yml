@@ -9,8 +9,14 @@ services:
     env_file:
       - .env
     ports:
-      # Bound to loopback: Cloudflare Tunnel is the only public path in.
-      - "127.0.0.1:8080:8080"
+      # Loopback by default: Cloudflare Tunnel is the only public path in, and
+      # the tunnel reaches the app through the shared network namespace below
+      # rather than through this published port.
+      #
+      # Set LOOPA_BIND_ADDR=0.0.0.0 to also serve the LAN directly — useful
+      # before a tunnel exists, or for watching clips at home without egressing
+      # to Cloudflare and back. It is still behind login either way.
+      - "${LOOPA_BIND_ADDR:-127.0.0.1}:8080:8080"
     volumes:
       # The library. Override LOOPA_MEDIA_HOST_DIR to point at a big disk —
       # on super_server that means something like X:/loopa-media.
@@ -34,6 +40,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: loopa-cloudflared
     restart: unless-stopped
+    # Opt-in: `docker compose --profile tunnel up -d`. Without this the sidecar
+    # would start with an empty TUNNEL_TOKEN on any plain `up` and crash-loop.
+    profiles: ["tunnel"]
     command: tunnel --no-autoupdate run
     environment:
       # Token from the Cloudflare Zero Trust dashboard for the Loopa tunnel.
