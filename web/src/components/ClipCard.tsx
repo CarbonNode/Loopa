@@ -297,6 +297,11 @@ export const ClipCard = memo(ClipCardComponent, (prev, next) => {
   return (
     prev.clip.id === next.clip.id &&
     prev.clip.updatedAt === next.clip.updatedAt &&
+    // Every field the card *renders* has to be compared here, not just
+    // updatedAt: an optimistic local edit (renaming from the context menu)
+    // changes the title without touching the server's timestamp, and the card
+    // would go on showing the old text until something else forced a render.
+    prev.clip.title === next.clip.title &&
     prev.clip.favorited === next.clip.favorited &&
     prev.clip.status === next.clip.status &&
     prev.clip.ai.status === next.clip.ai.status &&

@@ -328,3 +328,46 @@
     padding-block: var(--space-1);
   }
 }
+
+/* The title doubles as the rename control; the pencil only appears on hover
+   so the heading still reads as a heading at rest. */
+.lightbox__title--editable {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: text;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.lightbox__title--editable svg {
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--text-tertiary);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.lightbox__title--editable:hover svg,
+.lightbox__title--editable:focus-visible svg {
+  opacity: 1;
+}
+
+.lightbox__title--editable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* On touch the title is a tap target, not just a heading — 23px of text is
+   below the 44px minimum, which the UI audit flags. */
+@media (pointer: coarse) {
+  .lightbox__title--editable {
+    min-height: 44px;
+  }
+}

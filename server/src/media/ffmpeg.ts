@@ -224,6 +224,60 @@ export async function trimSegment(
 }
 
 /**
+ * Cut a range out as an MP3.
+ *
+ * MP3 rather than the source codec because CarbonBoard's Electron player and
+ * Lavalink both take it without question, and a soundbite is small enough
+ * that the transcode cost is irrelevant.
+ *
+ * Two details that a naive `-ss/-t/-vn` misses:
+ *
+ * - A hard cut mid-waveform starts and ends on a non-zero sample, which is an
+ *   audible click through speakers. A 20ms fade at each end removes it and is
+ *   far shorter than anything anyone can hear as a fade.
+ * - Clips come from wildly different sources, so raw levels vary by 20dB or
+ *   more. On a soundboard that means every button needs its volume nudged by
+ *   hand, so `loudnorm` to the -16 LUFS streaming target is on by default.
+ *   It is single-pass — the two-pass version measures the whole file first,
+ *   which is accurate and slow, and this is a ten-second cut.
+ */
+export async function extractAudioMp3(
+  input: string,
+  output: string,
+  opts: { startMs: number; endMs: number; bitrate?: string; normalise?: boolean },
+): Promise<void> {
+  const startSeconds = Math.max(0, opts.startMs / 1000);
+  const durationSeconds = Math.max(0.05, (opts.endMs - opts.startMs) / 1000);
+
+  const fade = Math.min(0.02, durationSeconds / 4);
+  const filters = [
+    `afade=t=in:st=0:d=${fade.toFixed(3)}`,
+    `afade=t=out:st=${Math.max(0, durationSeconds - fade).toFixed(3)}:d=${fade.toFixed(3)}`,
+  ];
+  if (opts.normalise !== false) filters.unshift('loudnorm=I=-16:TP=-1.5:LRA=11');
+
+  await run(
+    'ffmpeg',
+    [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      // Seek before -i so ffmpeg jumps to the preceding frame rather than
+      // decoding from zero; -t after it counts from the seek point.
+      '-ss', startSeconds.toFixed(3),
+      '-i', input,
+      '-t', durationSeconds.toFixed(3),
+      '-vn',
+      '-af', filters.join(','),
+      '-c:a', 'libmp3lame',
+      '-b:a', opts.bitrate ?? '192k',
+      '-ar', '44100',
+      '-ac', '2',
+      output,
+    ],
+    { timeoutMs: 5 * 60 * 1000 },
+  );
+}
+
+/**
  * Grab a poster frame.
  *
  * Seeks ~25% in rather than to 0: the first frame of a Reel or TikTok is very

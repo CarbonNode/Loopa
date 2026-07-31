@@ -1,3 +1,4 @@
+import { stat } from 'node:fs/promises';
 import type { FastifyInstance } from 'fastify';
 import { AuthError } from '../../auth/service.ts';
 import { activityFeed, clipActivity } from '../../clips/activity.ts';
@@ -21,7 +22,8 @@ import {
   type ListOptions,
 } from '../../clips/repository.ts';
 import { enqueue, jobsForClip } from '../../jobs/queue.ts';
-import { toPublicMediaUrl } from '../../media/storage.ts';
+import { absolutePath, assertInsideMediaDir, toPublicMediaUrl } from '../../media/storage.ts';
+import { ZIP_MAX_BYTES, createZipStream, uniqueEntryName, type ZipEntry } from '../../media/zip.ts';
 import { canDeleteClip, requireUser } from '../context.ts';
 
 function readString(value: unknown): string | undefined {
@@ -30,6 +32,9 @@ function readString(value: unknown): string | undefined {
 
 const SORTS = ['recent', 'oldest', 'popular', 'random', 'relevance', 'title'] as const;
 const KINDS = ['video', 'gif', 'image'] as const;
+
+/** A bulk save is "grab these few", not "export the library". */
+const MAX_ZIP_CLIPS = 60;
 
 export async function registerClipRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/clips', async (request) => {
@@ -135,6 +140,79 @@ export async function registerClipRoutes(app: FastifyInstance): Promise<void> {
 
     undeleteClip(id);
     return { clip: toClipView(getClip(id)!, { favorited: isFavorited(user.id, id) }) };
+  });
+
+  /**
+   * Save a selection as a single ZIP.
+   *
+   * A GET so the browser downloads it natively — streamed straight through,
+   * rather than assembled into a blob in the page, which for a few hundred
+   * megabytes of video would be a lot of memory for no benefit. Ids ride in
+   * the query string: 60 ULIDs is well under any URL length limit.
+   *
+   * Under `bulk/` rather than at `/api/clips/download.zip`, which collides
+   * with `/api/clips/:id` — the parametric route wins and the request comes
+   * back as "That clip does not exist."
+   */
+  app.get('/api/clips/bulk/download.zip', async (request, reply) => {
+    requireUser(request);
+    const query = request.query as { ids?: string };
+
+    const ids = (query.ids ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, MAX_ZIP_CLIPS);
+
+    if (ids.length === 0) throw new AuthError('Select at least one clip to save.');
+
+    const entries: ZipEntry[] = [];
+    const taken = new Set<string>();
+    let total = 0;
+
+    for (const id of ids) {
+      const clip = getClip(id);
+      if (!clip) continue;
+
+      const relative = clip.playable_path ?? clip.original_path;
+      const absolute = absolutePath(relative);
+      assertInsideMediaDir(absolute);
+
+      const info = await stat(absolute).catch(() => null);
+      if (!info?.isFile()) continue;
+
+      total += info.size;
+      if (total > ZIP_MAX_BYTES) {
+        throw new AuthError(
+          'That selection is over the 4 GB a single ZIP can hold. Pick fewer clips.',
+          413,
+        );
+      }
+
+      entries.push({
+        name: uniqueEntryName(
+          clip.title || clip.original_filename || 'clip',
+          relative.split('.').pop() ?? clip.ext,
+          taken,
+        ),
+        path: absolute,
+        modifiedAt: new Date(clip.created_at),
+      });
+    }
+
+    if (entries.length === 0) throw new AuthError('None of those clips have a file to save.', 404);
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = entries.length === 1 ? entries[0]!.name : `loopa-${stamp}-${entries.length}-clips.zip`;
+
+    reply.header('Content-Type', 'application/zip');
+    reply.header('Content-Disposition', `attachment; filename="${filename.replace(/"/g, '')}"`);
+    // The length is unknown until the last byte is written, so it must not be
+    // cached or range-requested.
+    reply.header('Cache-Control', 'no-store');
+    reply.header('X-Content-Type-Options', 'nosniff');
+
+    return reply.send(createZipStream(entries));
   });
 
   /** Who added this, who has watched it, who favourited it, who shared it. */

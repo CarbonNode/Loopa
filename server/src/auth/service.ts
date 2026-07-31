@@ -238,6 +238,15 @@ export function destroySession(token: string | undefined): void {
 
 // ── Invites ──────────────────────────────────────────────────────────────────
 
+/**
+ * `max_uses = 0` means "no limit".
+ *
+ * A sentinel rather than a nullable column: every existing row already has a
+ * number, and NULL would have to be special-cased in the same three places
+ * anyway — but silently, since `uses < NULL` is neither true nor false.
+ */
+export const UNLIMITED_USES = 0;
+
 export function createInvite(input: {
   createdBy: string;
   role?: Role;
@@ -247,7 +256,10 @@ export function createInvite(input: {
 }): Invite {
   const code = newInviteCode();
   const now = Date.now();
-  const maxUses = Math.min(Math.max(input.maxUses ?? 1, 1), 100);
+  // 0 means unlimited. Clamped otherwise, so a typo cannot mint a code with
+  // four million uses that nobody notices.
+  const requested = input.maxUses ?? 1;
+  const maxUses = requested === UNLIMITED_USES ? UNLIMITED_USES : Math.min(Math.max(requested, 1), 1000);
   const expiresAt = input.expiresInDays ? now + input.expiresInDays * 86_400_000 : null;
 
   db.prepare(
@@ -280,7 +292,7 @@ function findUsableInvite(code: string): Invite {
   if (!invite) throw rejection;
   if (invite.revoked_at) throw rejection;
   if (invite.expires_at && invite.expires_at < Date.now()) throw rejection;
-  if (invite.uses >= invite.max_uses) throw rejection;
+  if (invite.max_uses !== UNLIMITED_USES && invite.uses >= invite.max_uses) throw rejection;
 
   return invite;
 }
@@ -309,7 +321,10 @@ export async function redeemInvite(input: {
   });
 
   const claimed = db
-    .prepare('UPDATE invites SET uses = uses + 1 WHERE code = ? AND uses < max_uses AND revoked_at IS NULL')
+    .prepare(
+      `UPDATE invites SET uses = uses + 1
+        WHERE code = ? AND (max_uses = ${UNLIMITED_USES} OR uses < max_uses) AND revoked_at IS NULL`,
+    )
     .run(invite.code);
 
   if (claimed.changes === 0) {

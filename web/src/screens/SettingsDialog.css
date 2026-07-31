@@ -460,3 +460,16 @@ textarea.settings__session-input {
     padding: 0 var(--space-3);
   }
 }
+
+/* Invite creation: a limit picker sitting next to the create button. */
+.settings__invite-new {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings__invite-new .settings__invite-uses {
+  width: auto;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+}

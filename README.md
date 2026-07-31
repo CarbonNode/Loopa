@@ -21,6 +21,9 @@ Built for a private group — invite-only, no public signup, everything on your 
 - **Categories by drag and drop.** Drag a clip (or a Ctrl-selected pile of them) onto a
   category in the sidebar.
 - **Deduplication by content hash**, so the same clip shared twice resolves to one entry.
+- **Send a line to the soundboard.** An admin can trim any clip's audio, listen to the
+  selection on a loop, and push it to [CarbonBoard](#sending-a-soundbite-to-carbonboard) as
+  an MP3 — where it becomes a button anyone can fire into Discord voice.
 
 ## Requirements
 
@@ -156,13 +159,34 @@ scripts/ui-audit.mjs multi-viewport screenshots + layout-defect detection
 The server runs TypeScript directly — Node 22 strips the types at load. There is no build
 step, which is what lets a deploy be `git pull` + restart.
 
+## Sending a soundbite to CarbonBoard
+
+Right-click a clip → **Send to CarbonBoard…**, or open it and press **To CarbonBoard**. Both
+are admin-only, and only appear on a ready clip that has an audio track.
+
+The dialog plays the clip, gives you the same two-tier timeline the clip studio uses, and
+loops the selected range so you can hear the cut before committing it. On send, the range is
+encoded to a 192 kbps MP3, loudness-matched to the same target as every other button, and
+uploaded — along with the clip's poster frame as button art, since CarbonBoard draws its
+buttons as cards.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `CARBONBOARD_URL` | `http://192.168.0.35:9601` | The CarbonBoard clip server. |
+| `ENABLE_CARBONBOARD` | `true` | `false` hides the action entirely. |
+| `CARBONBOARD_MAX_SECONDS` | `60` | Longest soundbite Loopa will cut. |
+| `CARBONBOARD_BITRATE` | `192k` | MP3 bitrate. |
+
+A clip server that is down does not break anything: the dialog still opens, says so, and the
+send reports which address it tried.
+
 ## Testing the UI
 
 ```bash
 node scripts/ui-audit.mjs http://127.0.0.1:8080 /tmp/loopa-shots
 ```
 
-Drives a real browser at five viewports from 360px to 1920px through thirteen views, writes
+Drives a real browser at five viewports from 360px to 1920px through twenty-odd views, writes
 screenshots, and fails on horizontal overflow, unreachable controls, clipped text and
 sub-24px tap targets.
 

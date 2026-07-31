@@ -4,6 +4,8 @@ import { ClipActivity } from './ClipActivity.tsx';
 import type { Clip } from '../api/types.ts';
 import { useFocusTrap, useScrollLock } from '../hooks/index.ts';
 import { useApp } from '../state/store.tsx';
+import { CommentThread } from './CommentThread.tsx';
+import { SoundbiteDialog } from './SoundbiteDialog.tsx';
 import {
   formatAbsoluteTime,
   formatBytes,
@@ -32,6 +34,7 @@ export function Lightbox() {
   const [draftDescription, setDraftDescription] = useState('');
   const [newTag, setNewTag] = useState('');
   const [saving, setSaving] = useState(false);
+  const [soundbiteOpen, setSoundbiteOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isOpen = activeClipId !== null;
@@ -43,6 +46,7 @@ export function Lightbox() {
     openClip(null);
     setClip(null);
     setEditing(false);
+    setSoundbiteOpen(false);
   }, [openClip]);
 
   // Load the clip whenever the active id changes.
@@ -205,6 +209,9 @@ export function Lightbox() {
   if (!isOpen) return null;
 
   const canDelete = clip && (user?.role === 'admin' || clip.uploaderId === user?.id);
+  // Admin-only, and only where there is actually audio to cut.
+  const canSoundbite =
+    clip && user?.role === 'admin' && clip.kind !== 'image' && clip.hasAudio && clip.status === 'ready';
   const sourceHost = hostOf(clip?.source.url ?? null);
 
   return (
@@ -266,7 +273,21 @@ export function Lightbox() {
                     aria-label="Clip title"
                   />
                 ) : (
-                  <h2 className="lightbox__title">{clip.title || 'Untitled clip'}</h2>
+                  /* The title is the obvious place to click to rename, so it
+                     is the control — the Edit button in the footer sits below
+                     five other blocks and is off-screen on a laptop. */
+                  <button
+                    type="button"
+                    className="lightbox__title lightbox__title--editable"
+                    onClick={() => setEditing(true)}
+                    title="Click to rename"
+                  >
+                    <span>{clip.title || 'Untitled clip'}</span>
+                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                      <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      <path d="M14.5 6.5 17.5 9.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </button>
                 )}
 
                 <div className="lightbox__meta">
@@ -357,6 +378,10 @@ export function Lightbox() {
               </section>
 
               <section className="lightbox__block">
+                <CommentThread clipId={clip.id} />
+              </section>
+
+              <section className="lightbox__block">
                 <h3 className="lightbox__block-title">Categories</h3>
                 <div className="lightbox__categories">
                   {categories.map((category) => {
@@ -430,6 +455,21 @@ export function Lightbox() {
                     >
                       Re-tag
                     </button>
+                    {canSoundbite && (
+                      <button
+                        type="button"
+                        className="btn btn--ghost"
+                        onClick={() => {
+                          // Two players competing for the same audio is
+                          // incoherent — the one behind stops.
+                          videoRef.current?.pause();
+                          setSoundbiteOpen(true);
+                        }}
+                        title="Cut a range of this clip's audio into the CarbonBoard soundboard"
+                      >
+                        To CarbonBoard
+                      </button>
+                    )}
                     {canDelete && (
                       <button type="button" className="btn btn--danger lightbox__delete" onClick={() => void deleteClip()}>
                         Remove
@@ -448,6 +488,8 @@ export function Lightbox() {
           )}
         </div>
       </div>
+
+      {soundbiteOpen && clip && <SoundbiteDialog clip={clip} onClose={() => setSoundbiteOpen(false)} />}
     </div>
   );
 }

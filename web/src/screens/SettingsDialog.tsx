@@ -615,6 +615,8 @@ function PeopleTab({ notify, reportError }: { notify: Notifier; reportError: Err
   const [invites, setInvites] = useState<Invite[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [creating, setCreating] = useState(false);
+  // 0 = unlimited, matching the server's sentinel.
+  const [maxUses, setMaxUses] = useState(1);
 
   const refresh = useCallback(async () => {
     try {
@@ -633,7 +635,7 @@ function PeopleTab({ notify, reportError }: { notify: Notifier; reportError: Err
   const createInvite = async () => {
     setCreating(true);
     try {
-      const { invite } = await api.createInvite({ maxUses: 1, expiresInDays: 14 });
+      const { invite } = await api.createInvite({ maxUses, expiresInDays: 14 });
       await refresh();
 
       // Clipboard access can be denied (insecure origin, permissions); the
@@ -656,14 +658,31 @@ function PeopleTab({ notify, reportError }: { notify: Notifier; reportError: Err
       <div className="settings__group">
         <div className="settings__group-head">
           <h3 className="settings__group-title">Invites</h3>
-          <button type="button" className="btn btn--primary btn--sm" onClick={() => void createInvite()} disabled={creating}>
-            {creating ? 'Creating…' : 'New invite'}
-          </button>
+          <div className="settings__invite-new">
+            <label className="visually-hidden" htmlFor="invite-uses">
+              How many people can use this invite
+            </label>
+            <select
+              id="invite-uses"
+              className="input settings__invite-uses"
+              value={maxUses}
+              onChange={(event) => setMaxUses(Number(event.target.value))}
+            >
+              <option value={1}>1 person</option>
+              <option value={5}>5 people</option>
+              <option value={25}>25 people</option>
+              {/* 0 is the server's sentinel for "no limit". */}
+              <option value={0}>Unlimited</option>
+            </select>
+            <button type="button" className="btn btn--primary btn--sm" onClick={() => void createInvite()} disabled={creating}>
+              {creating ? 'Creating…' : 'New invite'}
+            </button>
+          </div>
         </div>
 
         {invites.length === 0 ? (
           <p className="settings__note">
-            No open invites. Create one and send the link — it works once and expires in two weeks.
+            No open invites. Pick how many people it should let in, create it, and send the link — invites expire in two weeks.
           </p>
         ) : (
           <ul className="settings__list">
@@ -672,7 +691,9 @@ function PeopleTab({ notify, reportError }: { notify: Notifier; reportError: Err
                 <div className="settings__row-text">
                   <strong className="settings__code">{invite.code}</strong>
                   <span className="settings__muted">
-                    {invite.uses}/{invite.max_uses} used
+                    {invite.max_uses === 0
+                      ? `${invite.uses} used · unlimited`
+                      : `${invite.uses}/${invite.max_uses} used`}
                     {invite.expires_at ? ` · expires ${formatRelativeTime(invite.expires_at)}` : ''}
                   </span>
                 </div>

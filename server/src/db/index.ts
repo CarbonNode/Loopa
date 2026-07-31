@@ -47,6 +47,39 @@ type Migration = { readonly id: number; readonly name: string; readonly up: () =
 
 const migrations: readonly Migration[] = [
   // Reserved: migration 1 is the initial schema, applied by schema.sql itself.
+  {
+    id: 2,
+    name: 'allow unlimited-use invites (max_uses = 0)',
+    up: () => {
+      // SQLite cannot alter a CHECK constraint, so relaxing `max_uses > 0` to
+      // `>= 0` means rebuilding the table. Skipped entirely when the schema
+      // already has the new form — a fresh install gets it from schema.sql,
+      // and rebuilding a correct table would be pointless work.
+      const current = db
+        .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'invites'")
+        .get() as { sql: string } | undefined;
+
+      if (!current || !/max_uses\s*>\s*0(?!\s*=)/.test(current.sql)) return;
+
+      db.exec(`
+        CREATE TABLE invites_rebuilt (
+          code       TEXT    PRIMARY KEY,
+          created_by TEXT    REFERENCES users(id) ON DELETE SET NULL,
+          role       TEXT    NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+          note       TEXT,
+          max_uses   INTEGER NOT NULL DEFAULT 1 CHECK (max_uses >= 0),
+          uses       INTEGER NOT NULL DEFAULT 0,
+          expires_at INTEGER,
+          revoked_at INTEGER,
+          created_at INTEGER NOT NULL
+        );
+        INSERT INTO invites_rebuilt (code, created_by, role, note, max_uses, uses, expires_at, revoked_at, created_at)
+          SELECT code, created_by, role, note, max_uses, uses, expires_at, revoked_at, created_at FROM invites;
+        DROP TABLE invites;
+        ALTER TABLE invites_rebuilt RENAME TO invites;
+      `);
+    },
+  },
 ];
 
 export function runMigrations(): void {

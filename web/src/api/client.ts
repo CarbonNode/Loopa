@@ -2,6 +2,7 @@ import type {
   Category,
   Clip,
   ClipActivity,
+  Comment,
   ClipPage,
   FeedEntry,
   Filters,
@@ -11,6 +12,8 @@ import type {
   ProbeResult,
   Role,
   ShareLink,
+  SoundbiteResult,
+  SoundboardStatus,
   StudioClipResult,
   StudioResolve,
   SystemStatus,
@@ -163,6 +166,26 @@ export const api = {
   tags: (options: { q?: string; limit?: number } = {}) =>
     request<{ tags: TagWithCount[] }>(`/api/tags${query(options)}`),
 
+  // ── Comments ─────────────────────────────────────────────────────────────
+  comments: (clipId: string) => request<{ comments: Comment[] }>(`/api/clips/${clipId}/comments`),
+
+  addComment: (clipId: string, body: string) =>
+    request<{ comment: Comment }>(`/api/clips/${clipId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
+
+  // Both of these return the whole refreshed thread rather than one comment,
+  // so the client never has to reconcile an edit against a stale list.
+  editComment: (commentId: string, body: string) =>
+    request<{ comments: Comment[] }>(`/api/comments/${commentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ body }),
+    }),
+
+  deleteComment: (commentId: string) =>
+    request<{ comments: Comment[] }>(`/api/comments/${commentId}`, { method: 'DELETE' }),
+
   // ── Categories ───────────────────────────────────────────────────────────
   categories: () => request<{ categories: Category[] }>('/api/categories'),
 
@@ -292,6 +315,37 @@ export const api = {
     categoryId?: string | null;
     mute?: boolean;
   }) => request<StudioClipResult>('/api/studio/clip', { method: 'POST', body: JSON.stringify(input) }),
+
+  // ── CarbonBoard soundboard ───────────────────────────────────────────────
+
+  /**
+   * Whether CarbonBoard is configured and reachable, plus its categories.
+   *
+   * Admin-only, like everything else here — the whole feature is.
+   */
+  soundboardStatus: () => request<SoundboardStatus>('/api/soundboard/status'),
+
+  /**
+   * Cut a range of a clip's audio and push it over as a soundbite.
+   *
+   * Resolves only once CarbonBoard has the file, so the caller can say it
+   * landed rather than that it was queued.
+   */
+  sendToSoundboard: (
+    clipId: string,
+    input: {
+      startMs: number;
+      endMs: number;
+      name: string;
+      category?: string | null;
+      normalise?: boolean;
+      includeArt?: boolean;
+    },
+  ) =>
+    request<SoundbiteResult>(`/api/clips/${clipId}/soundboard`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 
   // ── System / admin ───────────────────────────────────────────────────────
   systemStatus: () => request<SystemStatus>('/api/system/status'),

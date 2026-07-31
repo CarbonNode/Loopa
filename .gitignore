@@ -8,6 +8,11 @@ dist/
 # every commit. The repo cloned and built, then crashed on a missing module.
 /data/
 /media/
+# Running the server from inside server/ (rather than the repo root) resolves
+# the default ./data and ./media relative to *there*, so the same runtime
+# artefacts appear one level down. Anchored for the same reason as above.
+/server/data/
+/server/media/
 *.db
 *.db-wal
 *.db-shm
@@ -16,6 +21,10 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# Conduit's per-session scratch: pasted uploads and screenshots handed to the
+# viewer. Useful in a session, meaningless in the repo.
+.conduit/
 
 # Editor / OS noise
 .DS_Store

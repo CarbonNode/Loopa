@@ -11,13 +11,16 @@ import { config } from './config.ts';
 import { closeDatabase, runMaintenance, runMigrations } from './db/index.ts';
 import { ensureStarterCategories, jobHandlers } from './jobs/handlers.ts';
 import { WorkerPool } from './jobs/queue.ts';
+import { SoundboardError } from './media/soundboard.ts';
 import { absolutePath, assertInsideMediaDir } from './media/storage.ts';
 import { IngestError, ytDlpBinary } from './media/urlingest.ts';
 import { announceSetupIfNeeded, registerAuthRoutes } from './http/routes/auth.ts';
 import { registerAdminRoutes } from './http/routes/admin.ts';
 import { registerCategoryRoutes } from './http/routes/categories.ts';
 import { registerClipRoutes } from './http/routes/clips.ts';
+import { registerCommentRoutes } from './http/routes/comments.ts';
 import { registerShareRoutes } from './http/routes/share.ts';
+import { registerSoundboardRoutes } from './http/routes/soundboard.ts';
 import { registerStudioRoutes } from './http/routes/studio.ts';
 import { registerUploadRoutes } from './http/routes/upload.ts';
 import { attachUser, requireUser, sendError } from './http/context.ts';
@@ -65,8 +68,8 @@ async function main(): Promise<void> {
     if (error instanceof AuthError) {
       return sendError(reply, error.status, error.message);
     }
-    if (error instanceof IngestError) {
-      return sendError(reply, error.status, error.message, error.hint);
+    if (error instanceof IngestError || error instanceof SoundboardError) {
+      return sendError(reply, error.status, error.message, error.hint ?? undefined);
     }
     if (error.statusCode === 413 || error.code === 'FST_REQ_FILE_TOO_LARGE') {
       return sendError(
@@ -117,9 +120,11 @@ async function main(): Promise<void> {
   // ── API ───────────────────────────────────────────────────────────────────
   await registerAuthRoutes(app);
   await registerClipRoutes(app);
+  await registerCommentRoutes(app);
   await registerCategoryRoutes(app);
   await registerUploadRoutes(app);
   await registerStudioRoutes(app);
+  await registerSoundboardRoutes(app);
   await registerAdminRoutes(app);
   // Public share links (/s/:token). Registered like any other route, so it
   // takes precedence over the SPA fallback below — which would otherwise hand

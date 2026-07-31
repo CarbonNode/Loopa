@@ -161,6 +161,37 @@ function buildConfig() {
      */
     ytDlpPath: env('YTDLP_PATH'),
 
+    /**
+     * CarbonBoard — the soundboard behind Cortex's Sounds tab.
+     *
+     * A plain HTTP service on the LAN (`carbonserver:9601`, no auth, open
+     * CORS) that stores one JSON index plus the audio files. Loopa pushes
+     * MP3s into it, so a funny line in a clip becomes a button someone can
+     * fire into Discord voice.
+     *
+     * ENABLE_CARBONBOARD=0 hides the feature entirely rather than offering an
+     * action that cannot work — which is what a deployment with no CarbonBoard
+     * on its network wants.
+     */
+    soundboard: (() => {
+      const url = (env('CARBONBOARD_URL') ?? 'http://192.168.0.35:9601').replace(/\/+$/, '');
+      return {
+        enabled: envBool('ENABLE_CARBONBOARD', true),
+        url,
+        /**
+         * Longest soundbite Loopa will cut.
+         *
+         * CarbonBoard buttons are one-liners, and its server refuses uploads
+         * past 25 MB — at 192 kbps that ceiling is ~17 minutes, so this cap
+         * is about what a soundboard is *for*, not about bytes.
+         */
+        maxSeconds: envInt('CARBONBOARD_MAX_SECONDS', 60, { min: 1, max: 900 }),
+        bitrate: env('CARBONBOARD_BITRATE') ?? '192k',
+        /** The clip server's own limit; checked here so we fail before the upload. */
+        maxUploadBytes: envInt('CARBONBOARD_MAX_UPLOAD_BYTES', 25 * 1024 * 1024),
+      };
+    })(),
+
     tagger: {
       provider: missingKeyFor ? ('disabled' as TaggerProvider) : taggerProvider,
       model: env('TAGGER_MODEL') ?? 'claude-haiku-4-5',

@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS invites (
   created_by TEXT    REFERENCES users(id) ON DELETE SET NULL,
   role       TEXT    NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
   note       TEXT,
-  max_uses   INTEGER NOT NULL DEFAULT 1 CHECK (max_uses > 0),
+  -- 0 means unlimited; see UNLIMITED_USES in auth/service.ts.
+  max_uses   INTEGER NOT NULL DEFAULT 1 CHECK (max_uses >= 0),
   uses       INTEGER NOT NULL DEFAULT 0,
   expires_at INTEGER,
   revoked_at INTEGER,
@@ -239,6 +240,29 @@ CREATE TABLE IF NOT EXISTS share_links (
 );
 
 CREATE INDEX IF NOT EXISTS idx_share_links_clip ON share_links (clip_id);
+
+-- ── Comments ─────────────────────────────────────────────────────────────────
+--
+-- Half the point of a shared clip library is arguing about the clips, so a
+-- comment is a first-class row rather than a note field on the clip.
+--
+-- Deletes are soft. A thread with holes punched in it reads as broken, so a
+-- removed comment keeps its place in the order and renders as a tombstone.
+-- The author survives the user being deleted (ON DELETE SET NULL) for the same
+-- reason: losing the row would silently rewrite a conversation.
+
+CREATE TABLE IF NOT EXISTS comments (
+  id         TEXT    PRIMARY KEY,
+  clip_id    TEXT    NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+  author_id  TEXT    REFERENCES users(id) ON DELETE SET NULL,
+  body       TEXT    NOT NULL,
+  created_at INTEGER NOT NULL,
+  edited_at  INTEGER,
+  deleted_at INTEGER
+);
+
+-- The only read that matters: one clip's thread, oldest first.
+CREATE INDEX IF NOT EXISTS idx_comments_clip ON comments (clip_id, created_at);
 
 -- ── Meta ─────────────────────────────────────────────────────────────────────
 

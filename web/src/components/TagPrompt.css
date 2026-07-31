@@ -1,0 +1,116 @@
+/*
+ * Anchored tag field, opened from the clip context menu.
+ *
+ * Same layer and shape language as ContextMenu — it replaces one, so it
+ * should look like it belongs to the same gesture.
+ */
+
+.tag-prompt {
+  position: fixed;
+  z-index: var(--z-context);
+  width: 244px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  animation: context-menu-in var(--duration-fast) var(--ease-out);
+  transform-origin: top left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-prompt {
+    animation: none;
+  }
+}
+
+.tag-prompt__heading {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-tertiary);
+}
+
+/* Two classes: several stylesheets carry a bare `.input`, so a single-class
+   rule here wins or loses on bundle order. */
+.tag-prompt .tag-prompt__input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.tag-prompt__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* Bounded: a common prefix can match a lot of tags, and the panel must not
+     grow past the viewport. */
+  max-height: 176px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tag-prompt__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-instant) var(--ease-out),
+    color var(--duration-instant) var(--ease-out);
+}
+
+.tag-prompt__item:hover,
+.tag-prompt__item.is-highlighted {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tag-prompt__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tag-prompt__name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tag-prompt__count {
+  flex-shrink: 0;
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.tag-prompt__hint {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.tag-prompt__hint kbd {
+  padding: 1px 4px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}

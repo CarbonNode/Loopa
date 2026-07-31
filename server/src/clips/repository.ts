@@ -589,7 +589,17 @@ export type CategoryWithCount = Category & { count: number };
 export function listCategories(): CategoryWithCount[] {
   return db
     .prepare(
-      `SELECT cat.*, COUNT(cc.clip_id) AS count
+      /*
+       * COUNT(c.id), not COUNT(cc.clip_id).
+       *
+       * The joins have to stay LEFT so a category with no clips still appears
+       * with a count of 0 — but that means a deleted clip's membership row
+       * survives the join with every `c.*` column NULL. Counting the
+       * membership column therefore counts deleted clips too, and the sidebar
+       * said "4" beside a category holding one clip. Counting a column from
+       * the *clips* side only counts rows where that join actually matched.
+       */
+      `SELECT cat.*, COUNT(c.id) AS count
          FROM categories cat
          LEFT JOIN clip_categories cc ON cc.category_id = cat.id
          LEFT JOIN clips c            ON c.id = cc.clip_id AND c.deleted_at IS NULL

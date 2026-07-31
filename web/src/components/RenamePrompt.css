@@ -1,0 +1,65 @@
+/*
+ * One-field editor anchored to the cursor. Same shell as ContextMenu and
+ * TagPrompt — it replaces a menu, so it should read as the same gesture.
+ */
+
+.rename-prompt {
+  position: fixed;
+  z-index: var(--z-context);
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  animation: context-menu-in var(--duration-fast) var(--ease-out);
+  transform-origin: top left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rename-prompt {
+    animation: none;
+  }
+}
+
+.rename-prompt__heading {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-tertiary);
+}
+
+/* Two classes: base.css declares a bare `.input`, and at equal specificity the
+   winner comes down to bundle order. */
+.rename-prompt .rename-prompt__input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.rename-prompt__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rename-prompt__hint {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.rename-prompt__hint kbd {
+  padding: 1px 4px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}

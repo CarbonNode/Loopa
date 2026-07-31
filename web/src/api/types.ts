@@ -183,6 +183,55 @@ export type StudioClipResult = {
   lengthMs: number;
 };
 
+// ── CarbonBoard soundboard ─────────────────────────────────────────────────
+
+/** One button on CarbonBoard, as its clip server returns it. */
+export type Soundbite = {
+  id: string;
+  name: string;
+  category: string | null;
+  favorite: boolean;
+  duration: number;
+  size: number;
+  /** Server-relative, e.g. `/clips/<id>.mp3`. */
+  file: string;
+  image?: string | null;
+  addedAt: string;
+};
+
+export type SoundboardStatus = {
+  /** False when the server has no CarbonBoard configured — the action hides entirely. */
+  enabled: boolean;
+  url: string | null;
+  maxSeconds: number;
+  /** The categories already in use over there. Empty when unreachable. */
+  categories: string[];
+  count?: number;
+  /** Configured but not answering: the dialog still opens and says so. */
+  reachable: boolean;
+  error: string | null;
+};
+
+export type SoundbiteResult = { soundbite: Soundbite; url: string };
+
+// ── Comments ───────────────────────────────────────────────────────────────
+
+export type CommentAuthor = { id: string; username: string; displayName: string; avatarColor: string };
+
+export type Comment = {
+  id: string;
+  clipId: string;
+  /** Empty when `deleted` — a removed comment's text never leaves the server. */
+  body: string;
+  createdAt: number;
+  editedAt: number | null;
+  deleted: boolean;
+  /** Null if the author's account has since been deleted. */
+  author: CommentAuthor | null;
+  /** Whether *you* may still edit or remove it. */
+  canEdit: boolean;
+};
+
 export type SortKey = 'recent' | 'oldest' | 'popular' | 'random' | 'title';
 
 export type Filters = {

@@ -275,6 +275,46 @@ async function main() {
       await page.waitForTimeout(300);
     }
 
+    // ── Send to CarbonBoard ──────────────────────────────────────────────
+    // The busiest dialog in the app — a player, the two-tier timeline and a
+    // form, all inside a modal — so it is the most likely place for a
+    // collision, and the combobox listbox floats over the toggles below it.
+    //
+    // The action is admin-only and needs a ready clip with audio, so the
+    // first card in the grid may well not offer it. Walk a few until one does
+    // rather than assuming, and skip the view entirely if none qualifies.
+    let soundbiteOpen = false;
+    for (const candidate of (await page.$$('.clip-card__surface')).slice(0, 6)) {
+      await candidate.click({ button: 'right' });
+      await page.waitForSelector('.context-menu', { timeout: 8000 });
+
+      const item = await page.$('.context-menu__item[data-item="soundboard"]:not(:disabled)');
+      if (item) {
+        await item.click();
+        soundbiteOpen = Boolean(await page.waitForSelector('.soundbite', { timeout: 10_000 }).catch(() => null));
+        break;
+      }
+
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(250);
+    }
+
+    if (soundbiteOpen) {
+      // The timeline has nothing to draw until the media element reports a
+      // duration, and the category list is a round trip to CarbonBoard.
+      await page.waitForTimeout(1400);
+      await record('03b-soundbite');
+
+      await page.click('#soundbite-category');
+      await page.waitForTimeout(400);
+      await record('03c-soundbite-categories');
+
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+    } else {
+      console.warn('  (no clip offered "Send to CarbonBoard" — skipped)');
+    }
+
     // ── Category context menu + inline rename ────────────────────────────
     // Below 900px the sidebar is a drawer, so it has to be opened to reach a
     // category at all.
