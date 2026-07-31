@@ -1,0 +1,39 @@
+# Keep the build context small and free of anything secret.
+#
+# Without this, the host's node_modules (hundreds of MB, and built for the
+# wrong platform) is uploaded to the daemon on every build, and a stray COPY
+# could bake .env into a layer.
+
+# Dependencies — installed inside the image, for Linux.
+node_modules
+**/node_modules
+
+# Runtime state: the library and the database live on a mounted volume.
+data/
+media/
+
+# The standalone yt-dlp zipapp is only for hosts that sandbox the home
+# directory; the image pip-installs it to a system path instead.
+vendor/
+
+# Secrets. Compose passes these in as environment variables at run time.
+.env
+.env.*
+!.env.example
+
+# Built output — the image builds the web bundle itself, so the host's copy
+# would only shadow it.
+web/dist/
+
+# History and tooling noise.
+.git/
+.gitignore
+.github/
+*.log
+screenshots/
+coverage/
+assets/forge/
+
+# Docs don't affect the build.
+README.md
+CLAUDE.md

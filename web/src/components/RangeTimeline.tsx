@@ -97,6 +97,8 @@ export function RangeTimeline({
   const [viewStartMs, setViewStartMs] = useState(0);
   const [viewSpanMs, setViewSpanMs] = useState(() => Math.max(MIN_SPAN_MS, durationMs));
   const [dragging, setDragging] = useState<'start' | 'end' | 'move' | 'scrub' | null>(null);
+  /** Where a mouse is hovering, for the ghost playhead. Null on touch. */
+  const [hoverMs, setHoverMs] = useState<number | null>(null);
 
   // The pointer's offset from the selection start when a move began, so
   // grabbing the middle of the band does not teleport it under the cursor.
@@ -188,11 +190,18 @@ export function RangeTimeline({
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent) => {
-      if (!dragging) return;
       const track = trackRef.current;
       if (!track) return;
 
       const ms = msFromClientX(event.clientX, track);
+
+      if (!dragging) {
+        // Ghost playhead. Touch has no hover, and showing one under a thumb
+        // that is already gone would just be a stuck artefact.
+        if (event.pointerType === 'mouse') setHoverMs(ms);
+        return;
+      }
+
       panToInclude(ms);
 
       if (dragging === 'scrub') {
@@ -305,6 +314,7 @@ export function RangeTimeline({
 
   const selectionLeft = toPercent(startMs);
   const selectionWidth = Math.max(0, toPercent(endMs) - selectionLeft);
+  const selectionPx = (selectionWidth / 100) * trackWidth;
   const playheadLeft = toPercent(positionMs);
   const playheadVisible = positionMs >= viewStart && positionMs <= viewEnd;
   const zoomed = span < durationMs - 1;
@@ -320,6 +330,37 @@ export function RangeTimeline({
   const flipStart = trackWidth > 0 && (selectionLeft / 100) * trackWidth < handlePx;
   const flipEnd =
     trackWidth > 0 && ((selectionLeft + selectionWidth) / 100) * trackWidth > trackWidth - handlePx;
+
+  /*
+   * The read-out that follows the pointer.
+   *
+   * While dragging, the exact value being set is the one thing worth looking
+   * at, and it is precisely where the eye already is — reading it off a field
+   * elsewhere on the page means looking away mid-drag.
+   */
+  const readout = useMemo(() => {
+    if (dragging === 'start') return { text: formatTimecode(startMs, { tenths: true }), at: startMs, wide: false };
+    if (dragging === 'end') return { text: formatTimecode(endMs, { tenths: true }), at: endMs, wide: false };
+    if (dragging === 'move') {
+      return {
+        text: `${formatTimecode(startMs)} → ${formatTimecode(endMs)}`,
+        at: (startMs + endMs) / 2,
+        wide: true,
+      };
+    }
+    if (dragging === 'scrub') return { text: formatTimecode(positionMs, { tenths: true }), at: positionMs, wide: false };
+    if (hoverMs !== null) return { text: formatTimecode(hoverMs, { tenths: true }), at: hoverMs, wide: false };
+    return null;
+  }, [dragging, hoverMs, startMs, endMs, positionMs]);
+
+  // Kept clear of the track's ends, or the bubble would hang off the edge and
+  // widen the whole page.
+  const readoutLeft = useMemo(() => {
+    if (!readout || trackWidth === 0) return 50;
+    const halfPx = readout.wide ? 74 : 38;
+    const rawPx = (toPercent(readout.at) / 100) * trackWidth;
+    return (clamp(rawPx, halfPx, Math.max(halfPx, trackWidth - halfPx)) / trackWidth) * 100;
+  }, [readout, trackWidth, toPercent]);
 
   return (
     <div className={`timeline${disabled ? ' timeline--disabled' : ''}`}>
@@ -363,85 +404,111 @@ export function RangeTimeline({
         </div>
       )}
 
-      {/* ── Detail track ────────────────────────────────────────────────── */}
-      <div
-        className={`timeline__track${dragging ? ' is-dragging' : ''}`}
-        ref={trackRef}
-        onPointerDown={(event) => beginDrag(event, 'scrub')}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-      >
-        {detailHeat && (
-          <svg className="timeline__heat" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <path d={detailHeat} />
-          </svg>
+      {/* The stage lets the read-out sit above the track, which clips its own
+          overflow to keep the heat curve and shoulders inside. */}
+      <div className="timeline__stage">
+        {readout && (
+          <span
+            className={`timeline__readout${readout.wide ? ' timeline__readout--wide' : ''}${dragging ? ' is-active' : ''}`}
+            style={{ left: `${readoutLeft}%` }}
+            aria-hidden="true"
+          >
+            {readout.text}
+          </span>
         )}
 
-        {visibleChapters.map((chapter) => (
+        <div
+          className={`timeline__track${dragging ? ` is-dragging is-dragging-${dragging}` : ''}`}
+          ref={trackRef}
+          onPointerDown={(event) => beginDrag(event, 'scrub')}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onPointerLeave={() => setHoverMs(null)}
+        >
+          {detailHeat && (
+            <svg className="timeline__heat" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <path d={detailHeat} />
+            </svg>
+          )}
+
+          {visibleChapters.map((chapter) => (
+            <span
+              key={`${chapter.startMs}-${chapter.title}`}
+              className="timeline__chapter-tick"
+              style={{ left: `${toPercent(chapter.startMs)}%` }}
+              aria-hidden="true"
+            />
+          ))}
+
+          {/* Dimmed shoulders make the selection read as "kept" rather than
+              "highlighted", which is the difference between an editor and a
+              progress bar. */}
+          <span className="timeline__shoulder" style={{ left: 0, width: `${clamp(selectionLeft, 0, 100)}%` }} aria-hidden="true" />
           <span
-            key={`${chapter.startMs}-${chapter.title}`}
-            className="timeline__chapter-tick"
-            style={{ left: `${toPercent(chapter.startMs)}%` }}
+            className="timeline__shoulder"
+            style={{ left: `${clamp(selectionLeft + selectionWidth, 0, 100)}%`, right: 0 }}
             aria-hidden="true"
           />
-        ))}
 
-        {/* Dimmed shoulders make the selection read as "kept" rather than
-            "highlighted", which is the difference between an editor and a
-            progress bar. */}
-        <span className="timeline__shoulder" style={{ left: 0, width: `${clamp(selectionLeft, 0, 100)}%` }} aria-hidden="true" />
-        <span
-          className="timeline__shoulder"
-          style={{ left: `${clamp(selectionLeft + selectionWidth, 0, 100)}%`, right: 0 }}
-          aria-hidden="true"
-        />
+          {hoverMs !== null && !dragging && (
+            <span className="timeline__ghost" style={{ left: `${toPercent(hoverMs)}%` }} aria-hidden="true" />
+          )}
 
-        <span
-          className="timeline__selection"
-          style={{ left: `${selectionLeft}%`, width: `${selectionWidth}%` }}
-          onPointerDown={(event) => beginDrag(event, 'move')}
-          role="presentation"
-          title="Drag to move the selection"
-        />
+          <span
+            className="timeline__selection"
+            style={{ left: `${selectionLeft}%`, width: `${selectionWidth}%` }}
+            onPointerDown={(event) => beginDrag(event, 'move')}
+            role="presentation"
+            title="Drag to move the selection"
+          >
+            {/* Only once there is room for it — a badge spilling out of a
+                narrow selection reads as a rendering fault. */}
+            {selectionPx > 78 && (
+              <span className="timeline__selection-length">
+                {formatTimecode(endMs - startMs, { tenths: true })}
+              </span>
+            )}
+          </span>
 
-        <div
-          className={`timeline__handle timeline__handle--start${flipStart ? ' is-flipped' : ''}`}
-          style={{ left: `${selectionLeft}%` }}
-          role="slider"
-          tabIndex={disabled ? -1 : 0}
-          aria-label="Clip start"
-          aria-valuemin={0}
-          aria-valuemax={Math.round(endMs - MIN_SELECTION_MS)}
-          aria-valuenow={Math.round(startMs)}
-          aria-valuetext={formatTimecode(startMs, { tenths: true })}
-          aria-disabled={disabled}
-          onPointerDown={(event) => beginDrag(event, 'start')}
-          onKeyDown={(event) => nudge('start', event)}
-        >
-          <span className="timeline__grip" aria-hidden="true" />
+          <div
+            className={`timeline__handle timeline__handle--start${flipStart ? ' is-flipped' : ''}`}
+            style={{ left: `${selectionLeft}%` }}
+            role="slider"
+            tabIndex={disabled ? -1 : 0}
+            aria-label="Clip start"
+            aria-valuemin={0}
+            aria-valuemax={Math.round(endMs - MIN_SELECTION_MS)}
+            aria-valuenow={Math.round(startMs)}
+            aria-valuetext={formatTimecode(startMs, { tenths: true })}
+            aria-disabled={disabled}
+            onPointerDown={(event) => beginDrag(event, 'start')}
+            onKeyDown={(event) => nudge('start', event)}
+          >
+            <span className="timeline__grip" aria-hidden="true" />
+          </div>
+
+          <div
+            className={`timeline__handle timeline__handle--end${flipEnd ? ' is-flipped' : ''}`}
+            style={{ left: `${selectionLeft + selectionWidth}%` }}
+            role="slider"
+            tabIndex={disabled ? -1 : 0}
+            aria-label="Clip end"
+            aria-valuemin={Math.round(startMs + MIN_SELECTION_MS)}
+            aria-valuemax={Math.round(durationMs)}
+            aria-valuenow={Math.round(endMs)}
+            aria-valuetext={formatTimecode(endMs, { tenths: true })}
+            aria-disabled={disabled}
+            onPointerDown={(event) => beginDrag(event, 'end')}
+            onKeyDown={(event) => nudge('end', event)}
+          >
+            <span className="timeline__grip" aria-hidden="true" />
+          </div>
+
+          {playheadVisible && (
+            <span className="timeline__playhead" style={{ left: `${playheadLeft}%` }} aria-hidden="true" />
+          )}
         </div>
-
-        <div
-          className={`timeline__handle timeline__handle--end${flipEnd ? ' is-flipped' : ''}`}
-          style={{ left: `${selectionLeft + selectionWidth}%` }}
-          role="slider"
-          tabIndex={disabled ? -1 : 0}
-          aria-label="Clip end"
-          aria-valuemin={Math.round(startMs + MIN_SELECTION_MS)}
-          aria-valuemax={Math.round(durationMs)}
-          aria-valuenow={Math.round(endMs)}
-          aria-valuetext={formatTimecode(endMs, { tenths: true })}
-          aria-disabled={disabled}
-          onPointerDown={(event) => beginDrag(event, 'end')}
-          onKeyDown={(event) => nudge('end', event)}
-        >
-          <span className="timeline__grip" aria-hidden="true" />
-        </div>
-
-        {playheadVisible && (
-          <span className="timeline__playhead" style={{ left: `${playheadLeft}%` }} aria-hidden="true" />
-        )}
       </div>
 
       {/* ── Ruler ───────────────────────────────────────────────────────── */}

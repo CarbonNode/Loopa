@@ -28,6 +28,13 @@ COPY web/package.json ./web/
 RUN npm install --workspace server --include-workspace-root \
       --omit=dev --no-audit --no-fund
 
+# npm workspaces hoist dependencies to the ROOT node_modules, so a clean
+# install leaves no server/node_modules at all — and the runtime stage's COPY
+# of it fails the build outright. It only appears when a version conflict
+# forces a nested install. Create it unconditionally so the COPY is valid
+# either way.
+RUN mkdir -p /build/server/node_modules
+
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app

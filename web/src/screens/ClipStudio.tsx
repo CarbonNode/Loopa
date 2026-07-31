@@ -534,29 +534,49 @@ export function ClipStudio() {
           <label className="visually-hidden" htmlFor="studio-url">
             YouTube link
           </label>
-          <input
-            id="studio-url"
-            className="input studio__paste-input"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onPaste={(event) => {
-              // Load on paste: the extra click on "Load" is pure friction when
-              // pasting a link is unambiguous about what you want.
-              const pasted = event.clipboardData.getData('text');
-              if (parseYouTubeUrl(pasted)) {
-                event.preventDefault();
-                setInput(pasted);
-                load(pasted);
-              }
-            }}
-            placeholder="https://www.youtube.com/watch?v=…"
-            spellCheck={false}
-            autoComplete="off"
-            type="url"
-            data-autofocus
-          />
+
+          <div className="studio__paste-field">
+            <span className="studio__paste-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="17" height="17">
+                <rect x="2.5" y="5" width="19" height="14" rx="4" fill="none" stroke="currentColor" strokeWidth="1.9" />
+                <path d="M10.2 9.4v5.2l4.5-2.6z" fill="currentColor" />
+              </svg>
+            </span>
+            <input
+              id="studio-url"
+              className="input studio__paste-input"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onPaste={(event) => {
+                // Load on paste: the extra click on "Load" is pure friction when
+                // pasting a link is unambiguous about what you want.
+                const pasted = event.clipboardData.getData('text');
+                if (parseYouTubeUrl(pasted)) {
+                  event.preventDefault();
+                  setInput(pasted);
+                  load(pasted);
+                }
+              }}
+              placeholder="Paste a YouTube link…"
+              spellCheck={false}
+              autoComplete="off"
+              type="url"
+              data-autofocus
+            />
+            {input && (
+              <button
+                type="button"
+                className="studio__paste-clear"
+                onClick={() => setInput('')}
+                aria-label="Clear the link"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
           <button type="submit" className="btn btn--primary" disabled={!input.trim()}>
-            Load
+            {resolving ? 'Loading…' : 'Load'}
           </button>
         </form>
 
@@ -573,13 +593,47 @@ export function ClipStudio() {
         {!videoId ? (
           <section className="studio__empty">
             <span className="studio__empty-icon" aria-hidden="true">
-              ✂
+              <svg viewBox="0 0 24 24" width="26" height="26">
+                <circle cx="6" cy="6.5" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                <circle cx="6" cy="17.5" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M8.3 7.9 20 17M8.3 16.1 20 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
             </span>
-            <h2 className="studio__empty-title">Nothing loaded yet</h2>
+
+            <h2 className="studio__empty-title">Grab the funny bit</h2>
             <p className="studio__empty-body">
-              Paste any YouTube link above — a full video, a Short, or a link with a timestamp. Only the range
-              you pick gets downloaded, so grabbing ten seconds out of a three-hour stream costs ten seconds.
+              Only the range you pick gets downloaded — ten seconds out of a three-hour stream costs ten
+              seconds.
             </p>
+
+            <ol className="studio__steps">
+              <li className="studio__step">
+                <span className="studio__step-number" aria-hidden="true">
+                  1
+                </span>
+                <strong className="studio__step-title">Paste a link</strong>
+                <span className="studio__step-body">Any YouTube video, Short, or link with a timestamp.</span>
+              </li>
+              <li className="studio__step">
+                <span className="studio__step-number" aria-hidden="true">
+                  2
+                </span>
+                <strong className="studio__step-title">Trim it</strong>
+                <span className="studio__step-body">
+                  Drag the handles, or hit <kbd>[</kbd> and <kbd>]</kbd> as it plays. Loop it until the timing
+                  is right.
+                </span>
+              </li>
+              <li className="studio__step">
+                <span className="studio__step-number" aria-hidden="true">
+                  3
+                </span>
+                <strong className="studio__step-title">Send it over</strong>
+                <span className="studio__step-body">
+                  It downloads, gets tagged, and turns up in your library.
+                </span>
+              </li>
+            </ol>
           </section>
         ) : (
           <div className="studio__layout">
@@ -665,26 +719,34 @@ export function ClipStudio() {
               )}
 
               <div className="studio__range-row">
-                <TimeField
-                  id="studio-start"
-                  label="Start"
-                  valueMs={range.startMs}
-                  onCommit={setStart}
-                  disabled={durationMs === 0}
-                />
-                <TimeField
-                  id="studio-end"
-                  label="End"
-                  valueMs={range.endMs}
-                  onCommit={setEnd}
-                  disabled={durationMs === 0}
-                />
-
-                <div className="studio__length">
-                  <span className="studio__time-label">Length</span>
-                  <span className={`studio__length-value${tooLong ? ' is-over' : ''}`}>
-                    {formatTimecode(Math.max(0, selectionMs), { tenths: true })}
+                {/* One cluster, because these three are a single reading:
+                    from here, to here, this long. Spread out as separate
+                    fields they read as three unrelated settings. */}
+                <div className="studio__range-cluster">
+                  <TimeField
+                    id="studio-start"
+                    label="Start"
+                    valueMs={range.startMs}
+                    onCommit={setStart}
+                    disabled={durationMs === 0}
+                  />
+                  <span className="studio__range-arrow" aria-hidden="true">
+                    →
                   </span>
+                  <TimeField
+                    id="studio-end"
+                    label="End"
+                    valueMs={range.endMs}
+                    onCommit={setEnd}
+                    disabled={durationMs === 0}
+                  />
+
+                  <div className="studio__length">
+                    <span className="studio__time-label">Length</span>
+                    <span className={`studio__length-value${tooLong ? ' is-over' : ''}`}>
+                      {formatTimecode(Math.max(0, selectionMs), { tenths: true })}
+                    </span>
+                  </div>
                 </div>
 
                 <button
