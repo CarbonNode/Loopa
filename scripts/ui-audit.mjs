@@ -257,14 +257,61 @@ async function main() {
     await page.fill('#auth-username', CREDENTIALS.username);
     await page.fill('#auth-password', CREDENTIALS.password);
     await page.click('button[type="submit"]');
-    await page.waitForSelector('.clip-card, .empty-state', { timeout: 20_000 });
+    // .pending-card counts too: with a download in flight and nothing else in
+    // the library, the grid renders placeholders and neither of the other two
+    // ever appears, so waiting on them alone hangs the whole run.
+    await page.waitForSelector('.clip-card, .empty-state, .pending-card', { timeout: 20_000 });
     await record('02-library');
+
+    // ── Clip context menu ────────────────────────────────────────────────
+    // Anchored to the cursor and rendered above everything, so it is exactly
+    // the shape of thing that collides with the card actions underneath it.
+    const menuCard = await page.$('.clip-card__surface');
+    if (menuCard) {
+      await menuCard.click({ button: 'right' });
+      await page.waitForSelector('.context-menu', { timeout: 8000 });
+      await record('03-context-menu');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    }
+
+    // ── Category context menu + inline rename ────────────────────────────
+    // Below 900px the sidebar is a drawer, so it has to be opened to reach a
+    // category at all.
+    const drawer = viewport.width <= 900;
+    if (drawer) {
+      await page.click('.topbar__menu-toggle');
+      await page.waitForTimeout(400);
+    }
+
+    const categoryRow = await page.$('.sidebar__item--category');
+    if (categoryRow) {
+      await categoryRow.click({ button: 'right' });
+      await page.waitForSelector('.context-menu', { timeout: 8000 });
+      await record('04-category-menu');
+
+      // The row turns into its own editor; it must not shift the list.
+      await page.click('.context-menu__item:has-text("Rename")');
+      await page.waitForSelector('.sidebar__rename', { timeout: 8000 });
+      await record('05-category-rename');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    }
+
+    if (drawer) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+      if (await page.$('.sidebar--open')) {
+        await page.click('.topbar__menu-toggle');
+        await page.waitForTimeout(400);
+      }
+    }
 
     // ── Sidebar (a drawer below 900px) ───────────────────────────────────
     if (viewport.width <= 900) {
       await page.click('.topbar__menu-toggle');
       await page.waitForTimeout(400);
-      await record('03-sidebar-drawer');
+      await record('06-sidebar-drawer');
 
       await page.keyboard.press('Escape');
       await page.waitForTimeout(400);
@@ -281,12 +328,12 @@ async function main() {
     // ── Search with results ──────────────────────────────────────────────
     await page.fill('.topbar__search-input', 'dog');
     await page.waitForTimeout(700);
-    await record('04-search');
+    await record('07-search');
 
     // ── Search with no results (empty state) ─────────────────────────────
     await page.fill('.topbar__search-input', 'zzzznothingmatches');
     await page.waitForTimeout(700);
-    await record('05-search-empty');
+    await record('08-search-empty');
     await page.fill('.topbar__search-input', '');
     await page.waitForTimeout(600);
 
@@ -296,7 +343,7 @@ async function main() {
       await card.click();
       await page.waitForSelector('.lightbox__panel', { timeout: 10_000 });
       await page.waitForTimeout(800);
-      await record('06-lightbox');
+      await record('09-lightbox');
       await page.keyboard.press('Escape');
       await page.waitForTimeout(400);
     }
@@ -309,7 +356,7 @@ async function main() {
       'https://www.instagram.com/reel/CxAmpleReel/\nhttps://www.tiktok.com/@someone/video/7300000000000000000',
     );
     await page.waitForTimeout(900);
-    await record('07-import');
+    await record('10-import');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
 
@@ -318,24 +365,24 @@ async function main() {
     await page.waitForTimeout(250);
     await page.click('text=Settings');
     await page.waitForSelector('.settings', { timeout: 10_000 });
-    await record('08-settings-account');
+    await record('11-settings-account');
 
     await page.click('.settings__tab:has-text("Ingest")');
     await page.waitForTimeout(500);
-    await record('09-settings-ingest');
+    await record('12-settings-ingest');
 
     const peopleTab = await page.$('.settings__tab:has-text("People")');
     if (peopleTab) {
       await peopleTab.click();
       await page.waitForTimeout(500);
-      await record('10-settings-people');
+      await record('13-settings-people');
     }
 
     const libraryTab = await page.$('.settings__tab:has-text("Library")');
     if (libraryTab) {
       await libraryTab.click();
       await page.waitForTimeout(500);
-      await record('11-settings-library');
+      await record('14-settings-library');
     }
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
@@ -345,7 +392,7 @@ async function main() {
     // exercises the SPA fallback: /studio has to survive a hard load.
     await page.goto(`${BASE}/studio`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.studio__empty', { timeout: 20_000 });
-    await record('12-studio-empty');
+    await record('15-studio-empty');
 
     await page.fill('#studio-url', STUDIO_TEST_URL);
     await page.click('.studio__paste button[type="submit"]');
@@ -371,7 +418,7 @@ async function main() {
       )
       .catch(() => console.warn('  (studio metadata did not resolve — offline?)'));
     await page.waitForTimeout(700);
-    await record('13-studio-loaded');
+    await record('16-studio-loaded');
 
     // Zoomed in: the overview strip and the ruler only render past this point,
     // and the handles land near each other, which is where they collide.
@@ -379,19 +426,22 @@ async function main() {
     if (fitButton) {
       await fitButton.click();
       await page.waitForTimeout(400);
-      await record('14-studio-zoomed');
+      await record('17-studio-zoomed');
     }
 
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'light';
     });
-    await record('15-studio-light');
+    await record('18-studio-light');
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'dark';
     });
 
     await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.clip-card, .empty-state', { timeout: 20_000 });
+    // .pending-card counts too: with a download in flight and nothing else in
+    // the library, the grid renders placeholders and neither of the other two
+    // ever appears, so waiting on them alone hangs the whole run.
+    await page.waitForSelector('.clip-card, .empty-state, .pending-card', { timeout: 20_000 });
 
     // ── Selection bar (bottom-centre; must clear toasts and upload tray) ──
     const cards = await page.$$('.clip-card__action--select');
@@ -399,14 +449,14 @@ async function main() {
       await selectButton.click();
       await page.waitForTimeout(120);
     }
-    await record('16-selection');
+    await record('19-selection');
 
     // ── Light theme ──────────────────────────────────────────────────────
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'light';
     });
     await page.waitForTimeout(400);
-    await record('17-light-theme');
+    await record('20-light-theme');
 
     for (const error of consoleErrors) {
       findings.push({ viewport: viewport.name, view: 'console', kind: 'console-error', detail: error.slice(0, 200) });

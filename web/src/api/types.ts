@@ -193,3 +193,54 @@ export type Filters = {
   kind: ClipKind | null;
   sort: SortKey;
 };
+
+// ── Sharing and attribution ──────────────────────────────────────────────────
+
+export type ShareLink = {
+  token: string;
+  /** The page to paste into chat — this is the one that unfurls with a player. */
+  url: string;
+  /** The bare .mp4, for places that embed off the file extension alone. */
+  directUrl: string;
+  expiresAt: number | null;
+  viewCount: number;
+  lastViewedAt: number | null;
+  createdAt: number;
+  reused?: boolean;
+};
+
+export type PersonRef = {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarColor: string;
+};
+
+export type PersonEvent = PersonRef & { at: number };
+
+export type ClipActivity = {
+  addedBy: PersonRef | null;
+  addedAt: number;
+  viewers: PersonEvent[];
+  favoritedBy: PersonEvent[];
+  shares: Array<{
+    token: string;
+    createdBy: PersonRef | null;
+    createdAt: number;
+    expiresAt: number | null;
+    viewCount: number;
+    lastViewedAt: number | null;
+  }>;
+  playCount: number;
+  /** Hits on public links. Anonymous by definition — a count, never a name. */
+  shareViewCount: number;
+};
+
+export type FeedEntry = {
+  kind: 'added' | 'viewed' | 'favorited' | 'shared';
+  at: number;
+  person: PersonRef | null;
+  clipId: string;
+  clipTitle: string;
+  poster: string | null;
+};

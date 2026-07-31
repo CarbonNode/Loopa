@@ -135,13 +135,49 @@ ragged dead space (the library mixes 9:16 and 16:9), and cropping to 16:9 mangle
 clips, which are the majority here. A square gives 16:9 and 9:16 an identical 56% fill and
 crops nothing.
 
+**⌘V/Ctrl+V adds whatever is on the clipboard**, handled in `DropZone` next to the drop
+handler since that already owns uploading and the progress tray. Files upload; plain text
+that parses as http(s) URLs is queued as an import. Two rules keep it from hijacking normal
+pasting: files are taken regardless of focus (an image pasted into a search box has no text
+meaning), but *text* is ignored whenever the caret is in an input, textarea or
+contenteditable — otherwise pasting a link into the search field would import it.
+
+Pasted files get a generated `pasted-<timestamp>.<ext>` name. Browsers hand over
+`image.png` for every screenshot, and the grid falls back to the filename when a clip has
+no title yet, so without this a run of pasted screenshots is a wall of identical cards.
+
+**Right-click a clip for the action menu.** `ContextMenu` is generic (items in,
+positioned menu out) and anchored to the cursor; it measures itself after mount and clamps
+into the viewport, because a menu opened near the bottom of the grid has to flip up and
+there is no way to know whether it fits without measuring.
+
+Focus the first item with `focus({ preventScroll: true })`. A plain `focus()` — or React's
+`autoFocus` — lets the browser scroll an ancestor to reveal the item, which fires the
+scroll listener that closes the menu, so it shuts the instant it opens. The scroll listener
+is also attached a frame late and ignores scrolls originating inside the menu.
+
+**Right-clicking a card inside a multi-selection acts on the whole selection**, the same
+rule drag-and-drop follows. The handler passed to `ClipCard` must therefore close over
+nothing but the setter: `ClipCard` is memoised on its data fields and ignores callback
+identity, so a handler capturing `selection` goes stale on every card that did not
+re-render. Store the click, build the items in `ClipGrid`'s render where the selection is
+current.
+
+**Deleting is undoable, and the undo has to reindex.** `softDeleteClip()` removes the clip
+from `clips_fts`, so `undeleteClip()` calls `reindexClipById()` — without it a restored
+clip comes back invisible to search, which is a silent failure nobody would notice until
+they went looking for it. `getClip()` filters deleted rows out, so restore looks the row up
+with `getDeletedClip()`. Do not reuse `reviveClip()`: that one re-runs processing because
+it exists for re-adding a file whose derivatives may have been purged, and an undo seconds
+after a delete would pointlessly re-transcode.
+
 **Run the audit after any UI change:**
 
 ```bash
 node scripts/ui-audit.mjs http://127.0.0.1:8080 /tmp/loopa-shots
 ```
 
-Five viewports, seventeen views, and it fails on real defects. Note its hard-won
+Five viewports, twenty views, and it fails on real defects. Note its hard-won
 correctness rules — if you extend it, keep them: visibility must be checked up the
 ancestor chain (a card's actions are opacity:1 inside an opacity:0 container),
 `elementFromPoint` is only meaningful for elements actually on screen, and console errors

@@ -9,6 +9,50 @@ type UploadTask = { id: number; label: string; progress: number; total: number }
 
 let taskCounter = 0;
 
+const pad = (value: number) => String(value).padStart(2, '0');
+
+/**
+ * Name a file that arrived through the clipboard.
+ *
+ * A pasted screenshot has no meaningful name — browsers hand over "image.png"
+ * every time, and the grid falls back to the filename when a clip has no
+ * title yet. Without this, pasting five screenshots produces five cards all
+ * called "image.png", indistinguishable until the tagger gets to them.
+ */
+function nameForPastedFile(file: File, index: number): string {
+  if (file.name && !/^(image|screenshot|clipboard)\.\w+$/i.test(file.name)) return file.name;
+
+  const extension = (file.type.split('/')[1] ?? 'png').split('+')[0]!.replace('jpeg', 'jpg');
+  const now = new Date();
+  const stamp =
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+  return `pasted-${stamp}${index > 0 ? `-${index + 1}` : ''}.${extension}`;
+}
+
+/** Only media is worth uploading; a pasted spreadsheet is not a clip. */
+function isMedia(file: File): boolean {
+  return file.type.startsWith('image/') || file.type.startsWith('video/');
+}
+
+/** True when the caret is somewhere a paste is meant to insert text. */
+function isTextTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  return Boolean(element?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]'));
+}
+
+function extractUrls(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .split(/[\s,]+/)
+        .map((entry) => entry.trim())
+        .filter((entry) => /^https?:\/\/\S+$/i.test(entry)),
+    ),
+  ].slice(0, 20);
+}
+
 /**
  * Whole-window drag-and-drop upload, plus the file picker behind the Upload
  * button.
@@ -18,7 +62,7 @@ let taskCounter = 0;
  * intermediate component needing drag handlers.
  */
 export const DropZone = forwardRef<DropZoneHandle>(function DropZone(_props, ref) {
-  const { notify, reportError, invalidateLibrary, refreshCategories, filters } = useApp();
+  const { notify, reportError, invalidateLibrary, refreshCategories, refreshStatus, filters } = useApp();
 
   const [dragging, setDragging] = useState(false);
   const [tasks, setTasks] = useState<UploadTask[]>([]);
@@ -75,6 +119,70 @@ export const DropZone = forwardRef<DropZoneHandle>(function DropZone(_props, ref
     },
     [filters.categoryId, notify, reportError, invalidateLibrary, refreshCategories],
   );
+
+  /** Queue pasted links, the same path the Add-link dialog uses. */
+  const importPasted = useCallback(
+    async (urls: string[]) => {
+      try {
+        const result = await api.importUrls(urls, filters.categoryId);
+
+        if (result.queued.length > 0) {
+          notify({
+            kind: 'success',
+            message:
+              result.queued.length === 1
+                ? `Pasted a ${result.queued[0]!.site} link — downloading…`
+                : `Pasted ${result.queued.length} links — downloading…`,
+            hint: 'They will appear in the library as each one finishes.',
+          });
+          void refreshStatus();
+          invalidateLibrary();
+        }
+        for (const rejection of result.rejected) {
+          notify({ kind: 'error', message: `${rejection.url}: ${rejection.error}`, hint: rejection.hint ?? null });
+        }
+      } catch (error) {
+        reportError(error, 'Could not queue that link.');
+      }
+    },
+    [filters.categoryId, notify, refreshStatus, invalidateLibrary, reportError],
+  );
+
+  /**
+   * Paste straight into the library.
+   *
+   * Screenshotting something and hitting ⌘V is the fastest possible way to
+   * add a clip, and it is the gesture people already have in their fingers
+   * from every chat app.
+   */
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const data = event.clipboardData;
+      if (!data) return;
+
+      // Files first, and regardless of focus: pasting an image into a search
+      // box has no text meaning, so uploading it is the only sensible reading.
+      const files = Array.from(data.files).filter(isMedia);
+      if (files.length > 0) {
+        event.preventDefault();
+        void upload(files.map((file, index) => new File([file], nameForPastedFile(file, index), { type: file.type })));
+        return;
+      }
+
+      // Text only counts when the caret is not somewhere that wants it —
+      // otherwise pasting a link into the search box would import it.
+      if (isTextTarget(event.target)) return;
+
+      const urls = extractUrls(data.getData('text/plain'));
+      if (urls.length === 0) return;
+
+      event.preventDefault();
+      void importPasted(urls);
+    };
+
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [upload, importPasted]);
 
   useImperativeHandle(ref, () => ({ pickFiles: () => inputRef.current?.click() }), []);
 
@@ -164,7 +272,9 @@ export const DropZone = forwardRef<DropZoneHandle>(function DropZone(_props, ref
               </svg>
             </div>
             <p className="dropzone__title">Drop to add to your library</p>
-            <p className="dropzone__hint">Videos, GIFs and images — as many as you like</p>
+            <p className="dropzone__hint">
+              Videos, GIFs and images — as many as you like. You can paste them too.
+            </p>
           </div>
         </div>
       )}

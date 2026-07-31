@@ -1,0 +1,130 @@
+/*
+ * A menu anchored to a cursor position.
+ *
+ * Fixed, not absolute: it is positioned from viewport coordinates and must
+ * not be clipped by, or scroll with, whatever it was opened over.
+ */
+
+.context-menu {
+  position: fixed;
+  z-index: var(--z-context);
+  min-width: 196px;
+  max-width: 260px;
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  animation: context-menu-in var(--duration-fast) var(--ease-out);
+  /* Anchored to the corner nearest the cursor, so the scale-in reads as the
+     menu springing from the click rather than from its own middle. */
+  transform-origin: top left;
+}
+
+@keyframes context-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-menu {
+    animation: none;
+  }
+}
+
+.context-menu__row {
+  display: contents;
+}
+
+.context-menu__separator {
+  display: block;
+  height: 1px;
+  margin: var(--space-1) calc(var(--space-1) * -1);
+  background: var(--border-subtle);
+}
+
+.context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-instant) var(--ease-out),
+    color var(--duration-instant) var(--ease-out);
+}
+
+.context-menu__item:hover:not(:disabled),
+.context-menu__item:focus-visible:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.context-menu__item:active:not(:disabled) {
+  background: var(--bg-active);
+}
+
+.context-menu__item:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.context-menu__item--danger {
+  color: var(--danger);
+}
+
+.context-menu__item--danger:hover:not(:disabled),
+.context-menu__item--danger:focus-visible:not(:disabled) {
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+
+.context-menu__icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  opacity: 0.9;
+}
+
+.context-menu__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu__hint {
+  flex-shrink: 0;
+  font-size: var(--text-2xs);
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+/* Touch opens this by long-press, where a 32px row is a coin-toss target. */
+@media (pointer: coarse) {
+  .context-menu {
+    min-width: 216px;
+  }
+
+  .context-menu__item {
+    padding: var(--space-3) var(--space-2);
+  }
+}

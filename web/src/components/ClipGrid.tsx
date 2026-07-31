@@ -1,14 +1,74 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { Clip } from '../api/types.ts';
 import { useDebounced, useInfiniteScroll } from '../hooks/index.ts';
 import { useApp, useFavoriteToggle } from '../state/store.tsx';
 import { ClipCard } from './ClipCard.tsx';
+import { ContextMenu, type ContextMenuItem } from './ContextMenu.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { PendingCard } from './PendingCard.tsx';
 import './ClipGrid.css';
 
 const PAGE_SIZE = 60;
+
+/** Icons for the context menu, kept inline to match the rest of the app. */
+const ICONS = {
+  open: (
+    <svg viewBox="0 0 24 24" width="15" height="15">
+      <path d="M5 6.5A1.5 1.5 0 0 1 6.5 5H10" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M9 15V9h6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m9 9 10 10" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  ),
+  heart: (
+    <svg viewBox="0 0 24 24" width="15" height="15">
+      <path
+        d="M12 20.5 4.8 13.6a4.6 4.6 0 0 1 6.5-6.5l.7.7.7-.7a4.6 4.6 0 1 1 6.5 6.5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  share: (
+    <svg viewBox="0 0 24 24" width="15" height="15">
+      <path
+        d="M10 14a3.6 3.6 0 0 0 5.3.3l3-3a3.6 3.6 0 0 0-5-5l-1.1 1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14 10a3.6 3.6 0 0 0-5.3-.3l-3 3a3.6 3.6 0 0 0 5 5l1.1-1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+  select: (
+    <svg viewBox="0 0 24 24" width="15" height="15">
+      <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  ),
+  download: (
+    <svg viewBox="0 0 24 24" width="15" height="15">
+      <path d="M12 4v11m0 0-4-4m4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 17.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  ),
+  trash: (
+    <svg viewBox="0 0 24 24" width="15" height="15">
+      <path d="M4.5 7h15M9.5 7V5.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M6.5 7h11l-.8 12a1 1 0 0 1-1 .9H8.3a1 1 0 0 1-1-.9Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  ),
+} as const;
+
+type MenuState = { clip: Clip; x: number; y: number };
 
 export function ClipGrid() {
   const {
@@ -21,8 +81,10 @@ export function ClipGrid() {
     categories,
     status,
     refreshStatus,
+    refreshCategories,
     notify,
     reportError,
+    user,
   } = useApp();
 
   /**
@@ -170,6 +232,170 @@ export function ClipGrid() {
     [selection.size, clearSelection],
   );
 
+  // ── Context menu ──────────────────────────────────────────────────────────
+
+  const [menu, setMenu] = useState<MenuState | null>(null);
+
+  /**
+   * Deliberately depends on nothing but the setter.
+   *
+   * ClipCard is memoised on its data fields and ignores callback identity, so
+   * a handler closing over `selection` would go stale on cards that did not
+   * re-render. Storing only the click means the menu's items are built later,
+   * in this component's render, where the selection is always current.
+   */
+  const handleContextMenu = useCallback((clip: Clip, event: React.MouseEvent) => {
+    event.preventDefault();
+    setMenu({ clip, x: event.clientX, y: event.clientY });
+  }, []);
+
+  const restoreClips = useCallback(
+    async (ids: string[]) => {
+      try {
+        await Promise.all(ids.map((id) => api.restoreClip(id)));
+        await load({ append: false });
+        void refreshCategories();
+        void refreshStatus();
+        notify({ kind: 'info', message: ids.length === 1 ? 'Clip restored.' : `${ids.length} clips restored.` });
+      } catch (error) {
+        reportError(error, 'Could not restore that.');
+        void load({ append: false });
+      }
+    },
+    [load, refreshCategories, refreshStatus, notify, reportError],
+  );
+
+  const deleteClips = useCallback(
+    async (ids: string[], skipped: number) => {
+      // Removed from the grid first: waiting on the round trip leaves the card
+      // sitting there after a deliberate action, which reads as a dead click.
+      setClips((current) => current.filter((clip) => !ids.includes(clip.id)));
+      setTotal((current) => Math.max(0, current - ids.length));
+      clearSelection();
+
+      try {
+        await Promise.all(ids.map((id) => api.deleteClip(id)));
+        void refreshCategories();
+        void refreshStatus();
+
+        notify({
+          kind: 'success',
+          message: ids.length === 1 ? 'Clip removed.' : `${ids.length} clips removed.`,
+          hint: skipped > 0 ? `${skipped} left alone — only an admin or the uploader can remove those.` : null,
+          action: { label: 'Undo', run: () => void restoreClips(ids) },
+        });
+      } catch (error) {
+        reportError(error, 'Could not remove that clip.');
+        // The optimistic removal was a guess and it was wrong; resync.
+        void load({ append: false });
+      }
+    },
+    [clearSelection, refreshCategories, refreshStatus, notify, restoreClips, reportError, load],
+  );
+
+  /**
+   * Mint (or re-fetch) the clip's public link and put it on the clipboard.
+   *
+   * The endpoint is idempotent, so a second "Copy share link" on the same clip
+   * hands back the URL already in circulation rather than orphaning it.
+   */
+  const shareClip = useCallback(
+    async (clip: Clip) => {
+      try {
+        const { share } = await api.shareClip(clip.id);
+        try {
+          await navigator.clipboard.writeText(share.url);
+          notify({
+            kind: 'success',
+            message: 'Share link copied.',
+            hint: 'Anyone with it can watch — no account needed.',
+          });
+        } catch {
+          // Insecure origin, or the user denied clipboard access. The URL is
+          // the whole point, so show it rather than swallowing the failure.
+          notify({ kind: 'info', message: share.url });
+        }
+      } catch (error) {
+        reportError(error, 'Could not create a share link.');
+      }
+    },
+    [notify, reportError],
+  );
+
+  /**
+   * Build the menu for whatever was right-clicked.
+   *
+   * A right-click on a card inside a multi-selection acts on the whole
+   * selection — the same rule drag-and-drop already follows. On a card
+   * outside it, the selection is irrelevant and only that clip is affected.
+   */
+  const menuItems = useMemo<ContextMenuItem[]>(() => {
+    if (!menu) return [];
+
+    const inSelection = selection.has(menu.clip.id);
+    const targets = inSelection && selection.size > 1 ? clips.filter((clip) => selection.has(clip.id)) : [menu.clip];
+
+    const canDelete = (clip: Clip) => user?.role === 'admin' || clip.uploaderId === user?.id;
+    const deletable = targets.filter(canDelete);
+    const many = targets.length > 1;
+
+    return [
+      {
+        id: 'open',
+        label: 'Open',
+        icon: ICONS.open,
+        disabled: many,
+        run: () => openClip(menu.clip.id),
+      },
+      {
+        id: 'favorite',
+        label: menu.clip.favorited ? 'Remove from favourites' : 'Add to favourites',
+        icon: ICONS.heart,
+        disabled: many,
+        run: () => handleToggleFavorite(menu.clip),
+      },
+      {
+        id: 'select',
+        label: inSelection ? 'Deselect' : 'Select',
+        icon: ICONS.select,
+        run: () => toggleSelected(menu.clip.id, true),
+      },
+      {
+        id: 'download',
+        label: 'Download',
+        icon: ICONS.download,
+        // Browsers block a burst of downloads, so this stays single-clip.
+        disabled: many,
+        run: () => {
+          window.location.href = `/api/clips/${menu.clip.id}/download`;
+        },
+      },
+      {
+        id: 'share',
+        label: 'Copy share link',
+        icon: ICONS.share,
+        hint: 'no sign-in needed',
+        // One link per clip, so this is meaningless on a multi-selection.
+        disabled: many || menu.clip.status !== 'ready',
+        run: () => void shareClip(menu.clip),
+      },
+      {
+        id: 'delete',
+        label: deletable.length > 1 ? `Delete ${deletable.length} clips` : 'Delete',
+        icon: ICONS.trash,
+        hint: deletable.length === 1 && many ? '1 of ' + targets.length : undefined,
+        danger: true,
+        separatorBefore: true,
+        disabled: deletable.length === 0,
+        run: () =>
+          void deleteClips(
+            deletable.map((clip) => clip.id),
+            targets.length - deletable.length,
+          ),
+      },
+    ];
+  }, [menu, selection, clips, user, openClip, handleToggleFavorite, toggleSelected, deleteClips, shareClip]);
+
   if (loading) {
     return (
       <div className="clip-grid" aria-busy="true" aria-label="Loading clips">
@@ -247,7 +473,7 @@ export function ClipGrid() {
       <EmptyState
         icon="🎬"
         title="Your library is empty"
-        body="Drop a video anywhere on this page to add it, or paste an Instagram, TikTok or YouTube link with the Add button."
+        body="Drop a video anywhere on this page, paste one straight from your clipboard, or add an Instagram, TikTok or YouTube link with the Add button."
       />
     );
   }
@@ -268,6 +494,7 @@ export function ClipGrid() {
             onToggleSelect={toggleSelected}
             onToggleFavorite={handleToggleFavorite}
             onDragStart={handleDragStart}
+            onContextMenu={handleContextMenu}
           />
         ))}
       </div>
@@ -292,6 +519,16 @@ export function ClipGrid() {
           {total.toLocaleString()} {total === 1 ? 'clip' : 'clips'}
           {clips.length < total ? ` · showing ${clips.length.toLocaleString()}` : ''}
         </p>
+      )}
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems}
+          label={menu.clip.title || 'Clip actions'}
+          onClose={() => setMenu(null)}
+        />
       )}
     </>
   );

@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { AuthError } from '../../auth/service.ts';
+import { activityFeed, clipActivity } from '../../clips/activity.ts';
 import {
   addClipTag,
   addClipToCategory,
   getClip,
+  getDeletedClip,
   isFavorited,
   listClips,
   listTags,
@@ -14,10 +16,12 @@ import {
   setFavorite,
   softDeleteClip,
   toClipView,
+  undeleteClip,
   updateClip,
   type ListOptions,
 } from '../../clips/repository.ts';
 import { enqueue, jobsForClip } from '../../jobs/queue.ts';
+import { toPublicMediaUrl } from '../../media/storage.ts';
 import { canDeleteClip, requireUser } from '../context.ts';
 
 function readString(value: unknown): string | undefined {
@@ -107,6 +111,56 @@ export async function registerClipRoutes(app: FastifyInstance): Promise<void> {
     // on the content hash.
     softDeleteClip(id);
     return { ok: true };
+  });
+
+  /**
+   * Undo a removal.
+   *
+   * Deleting from the grid is one right-click and one menu item away, which
+   * is close enough to a misclick that it needs a way back. The row is only
+   * soft-deleted, so this is just clearing the flag — but without an endpoint
+   * for it the "Undo" on the toast would have nothing to call.
+   */
+  app.post('/api/clips/:id/restore', async (request) => {
+    const user = requireUser(request);
+    const { id } = request.params as { id: string };
+
+    // getClip() filters deleted rows out, so the lookup has to be the one
+    // that can still see them.
+    const clip = getDeletedClip(id);
+    if (!clip) throw new AuthError('That clip is not in the bin.', 404);
+    if (!canDeleteClip(user, clip.uploader_id)) {
+      throw new AuthError('Only the person who added this clip, or an admin, can restore it.', 403);
+    }
+
+    undeleteClip(id);
+    return { clip: toClipView(getClip(id)!, { favorited: isFavorited(user.id, id) }) };
+  });
+
+  /** Who added this, who has watched it, who favourited it, who shared it. */
+  app.get('/api/clips/:id/activity', async (request) => {
+    requireUser(request);
+    const { id } = request.params as { id: string };
+
+    const activity = clipActivity(id);
+    if (!activity) throw new AuthError('That clip does not exist.', 404);
+
+    return { activity };
+  });
+
+  /** A library-wide feed: what everyone has been adding and watching. */
+  app.get('/api/activity', async (request) => {
+    requireUser(request);
+    const query = request.query as Record<string, string | undefined>;
+    const limit = query.limit ? Number.parseInt(query.limit, 10) : undefined;
+
+    return {
+      entries: activityFeed(Number.isFinite(limit) ? limit : undefined).map((entry) => ({
+        ...entry,
+        poster: toPublicMediaUrl(entry.posterPath),
+        posterPath: undefined,
+      })),
+    };
   });
 
   app.post('/api/clips/:id/view', async (request) => {

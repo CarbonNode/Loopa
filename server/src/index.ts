@@ -17,6 +17,7 @@ import { announceSetupIfNeeded, registerAuthRoutes } from './http/routes/auth.ts
 import { registerAdminRoutes } from './http/routes/admin.ts';
 import { registerCategoryRoutes } from './http/routes/categories.ts';
 import { registerClipRoutes } from './http/routes/clips.ts';
+import { registerShareRoutes } from './http/routes/share.ts';
 import { registerStudioRoutes } from './http/routes/studio.ts';
 import { registerUploadRoutes } from './http/routes/upload.ts';
 import { attachUser, requireUser, sendError } from './http/context.ts';
@@ -120,6 +121,10 @@ async function main(): Promise<void> {
   await registerUploadRoutes(app);
   await registerStudioRoutes(app);
   await registerAdminRoutes(app);
+  // Public share links (/s/:token). Registered like any other route, so it
+  // takes precedence over the SPA fallback below — which would otherwise hand
+  // a crawler index.html and unfurl as an empty card.
+  await registerShareRoutes(app);
 
   /** Download with the original filename, rather than the content hash. */
   app.get('/api/clips/:id/download', async (request, reply) => {

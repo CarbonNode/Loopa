@@ -14,14 +14,16 @@ import { cancelImport, jobStats, pendingImports, recentFailures, retryJob } from
 import { removeDerivedDir, removeStoredFiles } from '../../media/storage.ts';
 import { rebuildIndex } from '../../search/index.ts';
 import { requireAdmin, requireUser } from '../context.ts';
+import { requestOrigin } from '../origin.ts';
 
 export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
   // ── Invites ───────────────────────────────────────────────────────────────
 
   app.get('/api/invites', async (request) => {
     requireAdmin(request);
+    const origin = requestOrigin(request);
     return {
-      invites: listInvites().map((invite) => ({ ...invite, url: inviteUrl(invite.code) })),
+      invites: listInvites().map((invite) => ({ ...invite, url: inviteUrl(invite.code, origin) })),
     };
   });
 
@@ -43,7 +45,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     });
 
     reply.status(201);
-    return { invite: { ...invite, url: inviteUrl(invite.code) } };
+    return { invite: { ...invite, url: inviteUrl(invite.code, requestOrigin(request)) } };
   });
 
   app.delete('/api/invites/:code', async (request) => {

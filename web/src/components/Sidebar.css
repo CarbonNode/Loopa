@@ -188,6 +188,37 @@
   color: var(--accent);
 }
 
+/* ── Inline rename ──────────────────────────────────────────────────────────
+   Sits exactly where the row it replaces was, so the list does not jump when
+   editing starts. The emoji field takes the swatch's slot. */
+.sidebar__rename {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 0;
+}
+
+.sidebar__rename .input {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* Two classes, not one: `.input` in base.css sets width:100%, and at equal
+   specificity the winner is decided by bundle order alone. Losing that race
+   gives the emoji field the whole row and squeezes the name field off the
+   edge of the sidebar. */
+.sidebar__rename .sidebar__rename-emoji {
+  width: 42px;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.sidebar__rename .sidebar__rename-name {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
 /* Shortcut hint on a nav row. Matches the count's slot so rows with a badge
    and rows with a shortcut keep the same right-hand rhythm. */
 .sidebar__kbd {

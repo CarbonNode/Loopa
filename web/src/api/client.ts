@@ -1,13 +1,16 @@
 import type {
   Category,
   Clip,
+  ClipActivity,
   ClipPage,
+  FeedEntry,
   Filters,
   ImportResult,
   IngestStatus,
   Invite,
   ProbeResult,
   Role,
+  ShareLink,
   StudioClipResult,
   StudioResolve,
   SystemStatus,
@@ -125,6 +128,9 @@ export const api = {
     request<{ clip: Clip }>(`/api/clips/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
 
   deleteClip: (id: string) => request<{ ok: boolean }>(`/api/clips/${id}`, { method: 'DELETE' }),
+
+  /** Undo a removal. The row is only soft-deleted, so this just clears the flag. */
+  restoreClip: (id: string) => request<{ clip: Clip }>(`/api/clips/${id}/restore`, { method: 'POST' }),
 
   recordView: (id: string) => request<{ ok: boolean }>(`/api/clips/${id}/view`, { method: 'POST' }),
 
@@ -323,4 +329,28 @@ export const api = {
   revokeInvite: (code: string) => request<{ ok: boolean }>(`/api/invites/${code}`, { method: 'DELETE' }),
 
   deleteUser: (id: string) => request<{ ok: boolean }>(`/api/users/${id}`, { method: 'DELETE' }),
+
+  // ── Sharing ────────────────────────────────────────────────────────────────
+
+  /**
+   * Get this clip's public link, minting one only if it has none.
+   *
+   * Idempotent, so "Copy link" twice hands back the same URL rather than
+   * quietly orphaning the one already pasted into a chat.
+   */
+  shareClip: (id: string, input: { expiresInDays?: number; fresh?: boolean } = {}) =>
+    request<{ share: ShareLink }>(`/api/clips/${id}/share`, { method: 'POST', body: JSON.stringify(input) }),
+
+  clipShares: (id: string) => request<{ shares: ShareLink[] }>(`/api/clips/${id}/shares`),
+
+  revokeShare: (token: string) => request<{ ok: boolean }>(`/api/shares/${token}`, { method: 'DELETE' }),
+
+  unshareClip: (id: string) =>
+    request<{ ok: boolean; revoked: number }>(`/api/clips/${id}/shares`, { method: 'DELETE' }),
+
+  // ── Attribution ────────────────────────────────────────────────────────────
+
+  clipActivity: (id: string) => request<{ activity: ClipActivity }>(`/api/clips/${id}/activity`),
+
+  activityFeed: (limit = 40) => request<{ entries: FeedEntry[] }>(`/api/activity?limit=${limit}`),
 };

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
+import { ClipActivity } from './ClipActivity.tsx';
 import type { Clip } from '../api/types.ts';
 import { useFocusTrap, useScrollLock } from '../hooks/index.ts';
 import { useApp } from '../state/store.tsx';
@@ -377,6 +378,8 @@ export function Lightbox() {
                   {categories.length === 0 && <span className="lightbox__muted">No categories yet.</span>}
                 </div>
               </section>
+
+              <ClipActivity clipId={clip.id} />
 
               {clip.ai.status === 'failed' && (
                 <p className="lightbox__muted lightbox__ai-note">

@@ -322,8 +322,16 @@ export async function redeemInvite(input: {
   return user;
 }
 
-export function inviteUrl(code: string): string {
-  return `${config.publicUrl}/join?code=${encodeURIComponent(code)}`;
+/**
+ * The link to send someone.
+ *
+ * The origin is passed in rather than read from config, because PUBLIC_URL
+ * defaults to localhost when unset — which silently produced invite links
+ * that were dead for every recipient. The caller derives it from the request
+ * so the link always points at the host the admin is actually using.
+ */
+export function inviteUrl(code: string, origin: string): string {
+  return `${origin}/join?code=${encodeURIComponent(code)}`;
 }
 
 // ── First-run bootstrap ──────────────────────────────────────────────────────

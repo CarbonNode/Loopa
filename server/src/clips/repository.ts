@@ -420,6 +420,33 @@ export function hardDeleteClip(id: string): void {
   removeFromIndex(id);
 }
 
+/** A clip that has been removed. getClip() deliberately cannot see these. */
+export function getDeletedClip(id: string): ClipRow | undefined {
+  return db.prepare('SELECT * FROM clips WHERE id = ? AND deleted_at IS NOT NULL').get(id) as ClipRow | undefined;
+}
+
+/**
+ * Put a removed clip straight back, exactly as it was.
+ *
+ * Distinct from reviveClip: that one re-runs processing because it exists for
+ * re-adding a file whose derivatives may have been purged. An undo happens
+ * seconds after the delete, when the poster and preview are still on disk —
+ * re-deriving would be a pointless transcode and would flash the card back
+ * into the grid as "Processing…".
+ *
+ * Soft-deleting drops the clip from the search index, so restoring has to put
+ * it back or the clip returns invisible to search.
+ */
+export function undeleteClip(id: string): boolean {
+  const result = db
+    .prepare('UPDATE clips SET deleted_at = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NOT NULL')
+    .run(Date.now(), id);
+
+  if (result.changes === 0) return false;
+  reindexClipById(id);
+  return true;
+}
+
 /**
  * Undo a soft delete and send the clip back through processing.
  *

@@ -218,6 +218,28 @@ CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
   prefix = '2 3 4'
 );
 
+-- ── Public share links ───────────────────────────────────────────────────────
+-- A clip handed out to people who have no account: the token IS the
+-- credential, so it is long and random rather than guessable.
+--
+-- Unlike sessions, the token is stored in the clear. It has to be: the whole
+-- point is handing the same URL back out from the UI after the fact, and a
+-- share link grants read access to one already-shareable clip rather than to
+-- an account.
+
+CREATE TABLE IF NOT EXISTS share_links (
+  token          TEXT    PRIMARY KEY,
+  clip_id        TEXT    NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+  created_by     TEXT    REFERENCES users(id) ON DELETE SET NULL,
+  expires_at     INTEGER,
+  revoked_at     INTEGER,
+  view_count     INTEGER NOT NULL DEFAULT 0,
+  last_viewed_at INTEGER,
+  created_at     INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_links_clip ON share_links (clip_id);
+
 -- ── Meta ─────────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS meta (

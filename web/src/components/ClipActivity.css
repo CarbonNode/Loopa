@@ -1,0 +1,134 @@
+/* Sharing + attribution, inside the lightbox detail column. */
+
+.activity__share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.activity__stop {
+  color: var(--danger);
+  margin-inline-start: auto;
+}
+
+/*
+ * The link itself.
+ *
+ * A share URL is one long unbreakable token, so without an explicit overflow
+ * rule it stretches the whole detail column and puts a horizontal scrollbar
+ * across the lightbox.
+ */
+.activity__url {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.activity__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+}
+
+.activity__heading {
+  margin-top: var(--space-2);
+}
+
+.activity__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.activity__row {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.activity__row dt {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  padding-top: 0.2rem;
+}
+
+.activity__row dd {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.activity__named {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.activity__named > span:not(.activity__avatar) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Overlapped, so a dozen watchers still occupy one tidy row. */
+.activity__people {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.activity__people > .activity__avatar + .activity__avatar {
+  margin-inline-start: -0.4rem;
+}
+
+.activity__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--bg-raised);
+  color: #fff;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
+  /* The avatar colours are mid-tone, so white initials need a little help. */
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.activity__people:hover > .activity__avatar {
+  /* Fan out on hover so an overlapped stack can be read. */
+  margin-inline-start: 0;
+}
+
+.activity__avatar--more {
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  text-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .activity__row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .activity__stop {
+    margin-inline-start: 0;
+  }
+}

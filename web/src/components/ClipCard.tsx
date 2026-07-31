@@ -13,6 +13,7 @@ type ClipCardProps = {
   onToggleFavorite: (clip: Clip) => void;
   /** Ids being dragged, so a multi-selection drags as a group. */
   onDragStart: (clip: Clip, event: React.DragEvent) => void;
+  onContextMenu: (clip: Clip, event: React.MouseEvent) => void;
 };
 
 /** Frozen SVG placeholder so a missing poster never renders as a broken image. */
@@ -27,6 +28,7 @@ function ClipCardComponent({
   onToggleSelect,
   onToggleFavorite,
   onDragStart,
+  onContextMenu,
 }: ClipCardProps) {
   // Three chips in a ~160px card ellipsise to "f…", "overco…" — technically
   // present, useless to read. Two legible tags beat three stubs.
@@ -103,6 +105,9 @@ function ClipCardComponent({
       className={`clip-card${selected ? ' clip-card--selected' : ''}${isProcessing ? ' clip-card--processing' : ''}`}
       draggable={!isProcessing}
       onDragStart={(event) => onDragStart(clip, event)}
+      // Also fires on a long-press on touch, which is the only way to reach
+      // these actions without a right mouse button.
+      onContextMenu={(event) => onContextMenu(clip, event)}
       onMouseEnter={startPreview}
       onMouseLeave={stopPreview}
       onFocus={startPreview}
