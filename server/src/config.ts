@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
-export type TaggerProvider = 'claude' | 'local' | 'disabled';
+export type TaggerProvider = 'claude' | 'openrouter' | 'local' | 'disabled';
 
 function env(name: string): string | undefined {
   const raw = process.env[name];
@@ -76,17 +76,32 @@ function buildConfig() {
   const { secret: sessionSecret, generated: sessionSecretGenerated } = resolveSessionSecret(dataDir);
 
   const taggerProviderRaw = (env('TAGGER_PROVIDER') ?? 'claude').toLowerCase();
-  if (!['claude', 'local', 'disabled'].includes(taggerProviderRaw)) {
-    throw new Error(`TAGGER_PROVIDER must be one of claude|local|disabled, got ${JSON.stringify(taggerProviderRaw)}`);
+  if (!['claude', 'openrouter', 'local', 'disabled'].includes(taggerProviderRaw)) {
+    throw new Error(`TAGGER_PROVIDER must be one of claude|openrouter|local|disabled, got ${JSON.stringify(taggerProviderRaw)}`);
   }
   const taggerProvider = taggerProviderRaw as TaggerProvider;
 
   const anthropicApiKey = env('ANTHROPIC_API_KEY');
-  if (taggerProvider === 'claude' && !anthropicApiKey) {
-    // Degrade rather than refuse to boot: an unusable tagger shouldn't stop
-    // people watching the clips they already have.
+  const openrouterApiKey = env('OPENROUTER_API_KEY');
+
+  /**
+   * Whichever provider is selected, is it actually usable?
+   *
+   * A provider chosen without its key degrades to disabled rather than
+   * failing at request time — an unusable tagger shouldn't stop people
+   * watching the clips they already have, and a clip left `pending` can be
+   * re-tagged later once the key is set. `local` needs no key.
+   */
+  const missingKeyFor =
+    taggerProvider === 'claude' && !anthropicApiKey
+      ? 'ANTHROPIC_API_KEY'
+      : taggerProvider === 'openrouter' && !openrouterApiKey
+        ? 'OPENROUTER_API_KEY'
+        : null;
+
+  if (missingKeyFor) {
     console.warn(
-      '[config] TAGGER_PROVIDER=claude but ANTHROPIC_API_KEY is unset — AI tagging is disabled. ' +
+      `[config] TAGGER_PROVIDER=${taggerProvider} but ${missingKeyFor} is unset — AI tagging is disabled. ` +
         'Clips will still ingest, and you can re-tag them once a key is configured.',
     );
   }
@@ -147,11 +162,17 @@ function buildConfig() {
     ytDlpPath: env('YTDLP_PATH'),
 
     tagger: {
-      provider: anthropicApiKey || taggerProvider !== 'claude' ? taggerProvider : ('disabled' as TaggerProvider),
+      provider: missingKeyFor ? ('disabled' as TaggerProvider) : taggerProvider,
       model: env('TAGGER_MODEL') ?? 'claude-haiku-4-5',
       keyframes: envInt('TAGGER_KEYFRAMES', 6, { min: 1, max: 20 }),
       frameWidth: envInt('TAGGER_FRAME_WIDTH', 512, { min: 128, max: 2048 }),
       anthropicApiKey,
+      openrouterApiKey,
+      openrouterUrl: env('OPENROUTER_URL') ?? 'https://openrouter.ai/api/v1',
+      // Flash-class vision models cost roughly a hundredth of a frontier
+      // model for what is mostly "describe these frames". Swap freely — one
+      // key reaches every vendor.
+      openrouterModel: env('OPENROUTER_MODEL') ?? 'qwen/qwen3.7-flash',
       localUrl: env('LOCAL_TAGGER_URL') ?? 'http://host.docker.internal:11434/v1',
       localModel: env('LOCAL_TAGGER_MODEL') ?? 'qwen2.5-vl:7b',
     },

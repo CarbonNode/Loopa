@@ -1,6 +1,6 @@
 import { config } from '../config.ts';
 import { createClaudeTagger } from './claude.ts';
-import { createLocalTagger } from './local.ts';
+import { createLocalTagger, createOpenRouterTagger } from './openai-compatible.ts';
 import type { Tagger } from './types.ts';
 
 let cached: Tagger | null | undefined;
@@ -19,6 +19,9 @@ export function getTagger(): Tagger | null {
     switch (config.tagger.provider) {
       case 'claude':
         cached = createClaudeTagger();
+        break;
+      case 'openrouter':
+        cached = createOpenRouterTagger();
         break;
       case 'local':
         cached = createLocalTagger();
