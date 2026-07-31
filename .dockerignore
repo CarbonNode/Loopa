@@ -9,12 +9,14 @@ node_modules
 **/node_modules
 
 # Runtime state: the library and the database live on a mounted volume.
-data/
-media/
+# Anchored: an unanchored `media/` also matches server/src/media/, which is
+# application source and must ship in the image.
+/data/
+/media/
 
 # The standalone yt-dlp zipapp is only for hosts that sandbox the home
 # directory; the image pip-installs it to a system path instead.
-vendor/
+/vendor/
 
 # Secrets. Compose passes these in as environment variables at run time.
 .env
@@ -23,7 +25,7 @@ vendor/
 
 # Built output — the image builds the web bundle itself, so the host's copy
 # would only shadow it.
-web/dist/
+/web/dist/
 
 # History and tooling noise.
 .git/

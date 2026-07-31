@@ -37,6 +37,15 @@
   flex-wrap: wrap;
 }
 
+/* Shares the hero column with the paste box and the steps card, so the empty
+   state reads as one centred thing rather than a heading pinned to the far
+   left of a 1440px shell. */
+.studio__header--hero {
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+}
+
 .studio__header-text {
   min-width: 0;
 }

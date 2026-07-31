@@ -2,9 +2,12 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# Runtime data — never commit the library or the database
-data/
-media/
+# Runtime data — never commit the library or the database.
+# LEADING SLASH IS LOAD-BEARING: an unanchored `media/` matches at any depth,
+# which silently excluded server/src/media/ — the whole media pipeline — from
+# every commit. The repo cloned and built, then crashed on a missing module.
+/data/
+/media/
 *.db
 *.db-wal
 *.db-shm
@@ -29,4 +32,4 @@ assets/forge/
 
 # Vendored standalone yt-dlp zipapp — a 3MB binary, fetched not committed.
 # See README: needed on hosts whose sandbox cannot see ~/.local/bin.
-vendor/
+/vendor/

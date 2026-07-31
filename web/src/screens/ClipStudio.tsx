@@ -511,7 +511,7 @@ export function ClipStudio() {
   return (
     <main className="studio" id="library">
       <div className="studio__inner">
-        <header className="studio__header">
+        <header className={`studio__header${videoId ? '' : ' studio__header--hero'}`}>
           <button type="button" className="btn btn--ghost btn--sm" onClick={() => navigate('library')}>
             <span aria-hidden="true">←</span> Library
           </button>
@@ -525,7 +525,7 @@ export function ClipStudio() {
         </header>
 
         <form
-          className="studio__paste"
+          className={`studio__paste${videoId ? '' : ' studio__paste--hero'}`}
           onSubmit={(event) => {
             event.preventDefault();
             load(input);
