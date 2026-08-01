@@ -113,7 +113,12 @@ export function SoundbiteDialog({ clip, onClose }: SoundbiteDialogProps) {
       setPositionMs(ms);
       // Looping is checked here rather than on a timer: timeupdate already
       // fires several times a second and carries the authoritative position.
-      if (looping && ms >= endMs - 20) {
+      //
+      // Both edges, not just the end. The selection can move *while* the loop
+      // runs — that is the whole point of auditioning one — and dragging the
+      // start past the playhead would otherwise leave it playing through
+      // everything before the cut until it happened to reach the end.
+      if (looping && (ms >= endMs - 20 || ms < startMs - 150)) {
         media.currentTime = startMs / 1000;
       }
     };
@@ -152,18 +157,25 @@ export function SoundbiteDialog({ clip, onClose }: SoundbiteDialogProps) {
     else media.pause();
   }, []);
 
+  /**
+   * Start — or restart — the selection on a loop.
+   *
+   * Deliberately never a stop. Pressing it a second time after nudging a
+   * handle means "play it again from where I just put it", which is the entire
+   * rhythm of trimming: move the edge, hear it, move it again. Making the
+   * second press pause instead was actively wrong — it stopped the audio at
+   * the exact moment the change was worth hearing. Space and the transport
+   * button are how you stop.
+   */
   const playSelection = useCallback(() => {
     const media = mediaRef.current;
     if (!media) return;
 
-    if (looping) {
-      media.pause();
-      return;
-    }
     media.currentTime = startMs / 1000;
+    setPositionMs(startMs);
     setLooping(true);
     void media.play().catch(() => undefined);
-  }, [looping, startMs]);
+  }, [startMs]);
 
   /*
    * The same clamping rules the timeline enforces, so typing a value and
@@ -213,12 +225,27 @@ export function SoundbiteDialog({ clip, onClose }: SoundbiteDialogProps) {
       } else if (event.key === ' ') {
         event.preventDefault();
         togglePlay();
+      } else if (event.key === 'ArrowUp') {
+        // Back to the selection. Scrubbing away to check something and then
+        // having to find the cut again by hand is the fiddliest part of this,
+        // and the two edges are the only positions worth returning to.
+        // preventDefault or the dialog body scrolls instead.
+        event.preventDefault();
+        seek(startMs);
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        // Leaving the loop is not incidental: a loop cannot sit at its own
+        // end, so without this the jump would bounce straight back to the
+        // start and "go to the end" would look broken. Playback itself
+        // continues, which is how you hear what comes after the cut.
+        setLooping(false);
+        seek(endMs);
       }
     };
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [positionMs, setStartTo, setEndTo, togglePlay]);
+  }, [positionMs, startMs, endMs, seek, setStartTo, setEndTo, togglePlay]);
 
   // ── Category suggestions ────────────────────────────────────────────────
   const categoryMatches = useMemo(() => {
@@ -377,22 +404,24 @@ export function SoundbiteDialog({ clip, onClose }: SoundbiteDialogProps) {
                     playsInline
                   />
                   <div className="soundbite__transport">
+                    {/* Reflects playback, looping or not — a pause button that
+                        reads "play" while audio is coming out is a lie. */}
                     <button
                       type="button"
                       className="btn btn--secondary btn--icon"
                       onClick={togglePlay}
-                      aria-label={playing && !looping ? 'Pause' : 'Play'}
-                      title={playing && !looping ? 'Pause' : 'Play (Space)'}
+                      aria-label={playing ? 'Pause' : 'Play'}
+                      title={playing ? 'Pause (Space)' : 'Play (Space)'}
                     >
-                      {playing && !looping ? '❚❚' : '▶'}
+                      {playing ? '❚❚' : '▶'}
                     </button>
                     <button
                       type="button"
                       className={`btn btn--sm${looping ? ' btn--primary' : ' btn--ghost'}`}
                       onClick={playSelection}
-                      title="Loop the selected range"
+                      title="Loop the selection — press again to jump back to the start"
                     >
-                      {looping ? 'Stop' : 'Play selection'}
+                      {looping ? 'Replay selection' : 'Play selection'}
                     </button>
                     <span className="soundbite__clock">
                       {formatTimecode(positionMs, { tenths: true })}
@@ -437,6 +466,16 @@ export function SoundbiteDialog({ clip, onClose }: SoundbiteDialogProps) {
                     {tooLong && ` — over the ${status?.maxSeconds ?? 60}s limit`}
                   </span>
                 </div>
+
+                {/* None of these are guessable, and all three are what makes
+                    trimming by ear quick rather than fiddly. */}
+                <p className="soundbite__keys">
+                  <kbd>Space</kbd> play or pause
+                  <span aria-hidden="true"> · </span>
+                  <kbd>↑</kbd> <kbd>↓</kbd> jump to the start or end of the selection
+                  <span aria-hidden="true"> · </span>
+                  <kbd>←</kbd> <kbd>→</kbd> nudge a handle once it has focus
+                </p>
 
                 <div className="soundbite__fields">
                   <div className="field">

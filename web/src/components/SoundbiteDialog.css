@@ -90,7 +90,15 @@
   flex-wrap: wrap;
 }
 
-.soundbite__marks kbd {
+.soundbite__keys {
+  margin-top: calc(-1 * var(--space-2));
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-snug);
+}
+
+.soundbite__marks kbd,
+.soundbite__keys kbd {
   display: inline-block;
   min-width: 16px;
   margin-right: var(--space-1);
