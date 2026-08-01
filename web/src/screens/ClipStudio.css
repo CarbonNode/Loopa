@@ -412,65 +412,8 @@
   flex-wrap: wrap;
 }
 
-/* From here, to here, this long — one reading, so one enclosure. */
-.studio__range-cluster {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-raised);
-  min-width: 0;
-}
-
-.studio__range-arrow {
-  padding-bottom: var(--space-3);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-
-.studio__time-field,
-.studio__length {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.studio__length {
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--border-subtle);
-}
-
-.studio__time-label {
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-tertiary);
-}
-
-.studio__time-input {
-  width: 9ch;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
-.studio__length-value {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
-  /* Match the input's height so the row's baselines line up. */
-  padding: var(--space-2) 0;
-  color: var(--accent);
-}
-
-.studio__length-value.is-over {
-  color: var(--danger);
-}
+/* The range cluster itself lives in components/TimeRange.css — shared with
+   the soundbite dialog. */
 
 .studio__preview-btn {
   margin-left: auto;
@@ -822,7 +765,7 @@
     justify-content: center;
   }
 
-  .studio__range-cluster {
+  .studio__range-row .time-range {
     flex: 1 1 100%;
     justify-content: space-between;
   }

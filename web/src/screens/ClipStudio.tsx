@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { ResolvedVideo, VideoChapter } from '../api/types.ts';
 import { RangeTimeline } from '../components/RangeTimeline.tsx';
+import { TimeRange } from '../components/TimeRange.tsx';
 import { useHotkey } from '../hooks/index.ts';
 import { useApp } from '../state/store.tsx';
-import { formatTimecode, parseTimecode } from '../utils/format.ts';
+import { formatTimecode } from '../utils/format.ts';
 import {
   PLAYER_STATE,
   describePlayerError,
@@ -23,89 +24,6 @@ const TICK_MS = 100;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-/**
- * A timecode field that only commits when it parses.
- *
- * Rewriting the value on every keystroke would fight the user: clearing the
- * field to retype "1:30" momentarily reads as "", which would otherwise snap
- * the handle to zero and lose their place.
- */
-function TimeField({
-  id,
-  label,
-  valueMs,
-  onCommit,
-  disabled,
-}: {
-  id: string;
-  label: string;
-  valueMs: number;
-  onCommit: (ms: number) => void;
-  disabled?: boolean;
-}) {
-  const [draft, setDraft] = useState(() => formatTimecode(valueMs, { tenths: true }));
-  const [focused, setFocused] = useState(false);
-  const [invalid, setInvalid] = useState(false);
-
-  // Track the outside world only while the user is not mid-edit.
-  useEffect(() => {
-    if (!focused) {
-      setDraft(formatTimecode(valueMs, { tenths: true }));
-      setInvalid(false);
-    }
-  }, [valueMs, focused]);
-
-  const commit = useCallback(() => {
-    const parsed = parseTimecode(draft);
-    if (parsed === null) {
-      setInvalid(true);
-      setDraft(formatTimecode(valueMs, { tenths: true }));
-      // Clear the warning once it has been seen, rather than leaving the
-      // field permanently red after a recovered typo.
-      setTimeout(() => setInvalid(false), 1200);
-      return;
-    }
-    onCommit(parsed);
-  }, [draft, valueMs, onCommit]);
-
-  return (
-    <div className="studio__time-field">
-      <label className="studio__time-label" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        className={`input studio__time-input${invalid ? ' input--invalid' : ''}`}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onFocus={(event) => {
-          setFocused(true);
-          event.target.select();
-        }}
-        onBlur={() => {
-          setFocused(false);
-          commit();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            commit();
-            event.currentTarget.blur();
-          } else if (event.key === 'Escape') {
-            setDraft(formatTimecode(valueMs, { tenths: true }));
-            event.currentTarget.blur();
-          }
-        }}
-        inputMode="numeric"
-        spellCheck={false}
-        autoComplete="off"
-        disabled={disabled}
-        aria-invalid={invalid}
-      />
-    </div>
-  );
 }
 
 /**
@@ -719,35 +637,16 @@ export function ClipStudio() {
               )}
 
               <div className="studio__range-row">
-                {/* One cluster, because these three are a single reading:
-                    from here, to here, this long. Spread out as separate
-                    fields they read as three unrelated settings. */}
-                <div className="studio__range-cluster">
-                  <TimeField
-                    id="studio-start"
-                    label="Start"
-                    valueMs={range.startMs}
-                    onCommit={setStart}
-                    disabled={durationMs === 0}
-                  />
-                  <span className="studio__range-arrow" aria-hidden="true">
-                    →
-                  </span>
-                  <TimeField
-                    id="studio-end"
-                    label="End"
-                    valueMs={range.endMs}
-                    onCommit={setEnd}
-                    disabled={durationMs === 0}
-                  />
-
-                  <div className="studio__length">
-                    <span className="studio__time-label">Length</span>
-                    <span className={`studio__length-value${tooLong ? ' is-over' : ''}`}>
-                      {formatTimecode(Math.max(0, selectionMs), { tenths: true })}
-                    </span>
-                  </div>
-                </div>
+                <TimeRange
+                  idPrefix="studio"
+                  startMs={range.startMs}
+                  endMs={range.endMs}
+                  lengthMs={selectionMs}
+                  onCommitStart={setStart}
+                  onCommitEnd={setEnd}
+                  disabled={durationMs === 0}
+                  over={tooLong}
+                />
 
                 <button
                   type="button"

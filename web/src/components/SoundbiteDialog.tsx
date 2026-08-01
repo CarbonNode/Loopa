@@ -5,6 +5,7 @@ import { useDismissable, useFocusTrap, useScrollLock } from '../hooks/index.ts';
 import { useApp } from '../state/store.tsx';
 import { formatTimecode } from '../utils/format.ts';
 import { RangeTimeline } from './RangeTimeline.tsx';
+import { TimeRange } from './TimeRange.tsx';
 import './SoundbiteDialog.css';
 
 type SoundbiteDialogProps = { clip: Clip; onClose: () => void };
@@ -444,28 +445,51 @@ export function SoundbiteDialog({ clip, onClose }: SoundbiteDialogProps) {
                   onSeek={seek}
                 />
 
+                {/* The exact path. Dragging a handle is fast, but a two-second
+                    cut inside a seventy-second clip is a few pixels wide, and
+                    until now the only place the actual times appeared was a
+                    footnote under the buttons. */}
                 <div className="soundbite__marks">
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => setStartTo(positionMs)}
-                    title="Set the start to the playhead"
-                  >
-                    <kbd>[</kbd> Start here
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => setEndTo(positionMs)}
-                    title="Set the end to the playhead"
-                  >
-                    <kbd>]</kbd> End here
-                  </button>
-                  <span className={`soundbite__length${tooLong ? ' is-over' : ''}`}>
-                    {formatTimecode(lengthMs, { tenths: true })}
-                    {tooLong && ` — over the ${status?.maxSeconds ?? 60}s limit`}
-                  </span>
+                  <TimeRange
+                    idPrefix="soundbite"
+                    startMs={startMs}
+                    endMs={endMs}
+                    lengthMs={lengthMs}
+                    onCommitStart={setStartTo}
+                    onCommitEnd={setEndTo}
+                    disabled={durationMs <= 0}
+                    over={tooLong}
+                  />
+
+                  <div className="soundbite__mark-buttons">
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => setStartTo(positionMs)}
+                      title="Set the start to the playhead"
+                    >
+                      <kbd>[</kbd> Start here
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => setEndTo(positionMs)}
+                      title="Set the end to the playhead"
+                    >
+                      <kbd>]</kbd> End here
+                    </button>
+                  </div>
                 </div>
+
+                {tooLong && (
+                  <p className="soundbite__notice" role="status">
+                    <span aria-hidden="true">⚠</span>
+                    <span>
+                      That selection is {Math.round(lengthMs / 1000)}s — this server caps a soundbite at{' '}
+                      {status?.maxSeconds ?? 60}s.
+                    </span>
+                  </p>
+                )}
 
                 {/* None of these are guessable, and all three are what makes
                     trimming by ear quick rather than fiddly. */}

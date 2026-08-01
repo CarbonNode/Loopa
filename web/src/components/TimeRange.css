@@ -1,0 +1,118 @@
+/*
+ * The typed path to a range: from here, to here, this long.
+ *
+ * Dragging a handle is the fast way; these are the exact way, and on a long
+ * video they are the only way to place a cut to the tenth of a second. Shared
+ * by the clip studio and the soundbite dialog.
+ */
+
+.time-range {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-raised);
+  /* Sized by its contents. Letting it grow stretches the two fields and
+     squeezes the length column until "LENGTH" wraps mid-word. */
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.time-range__arrow {
+  padding-bottom: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.time-field,
+.time-range__length {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.time-range__length {
+  flex: 0 0 auto;
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.time-field__label {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-tertiary);
+  /* A one-word label has no business wrapping — "LENGT / H" reads as a bug. */
+  white-space: nowrap;
+}
+
+/*
+ * Scoped to the cluster on purpose, not left as a bare `.time-field__input`.
+ *
+ * `base.css`'s `.input { width: 100% }` is loaded after this file, so at equal
+ * specificity it wins and the fields stretch to fill the row — which squeezes
+ * the length column until its label wraps. The extra class outranks it however
+ * the bundler happens to order the sheets.
+ */
+.time-range .time-field__input {
+  /*
+   * Wide enough for the longest timecode this can hold — `1:23:45.6`, nine
+   * characters — with the field's own padding counted in. `.input` is
+   * border-box with `--space-4` of horizontal padding, so the previous 9ch
+   * left 49px of usable room for an 86px value and clipped every reading to
+   * "0:00.(". The narrower padding here is what buys the room back.
+   */
+  width: 12ch;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.time-range__length-value {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  /* Match the input's height so the row's baselines line up. */
+  padding: var(--space-2) 0;
+  color: var(--accent);
+}
+
+.time-range__length-value.is-over {
+  color: var(--danger);
+}
+
+/*
+ * On a phone the three columns do not fit side by side, and squeezing them
+ * crushes the arrow into the end field. Narrowing the inputs instead would
+ * re-introduce the clipping this file exists to avoid on a long video, so the
+ * length drops to its own line and the two fields keep their full width.
+ */
+@media (max-width: 460px) {
+  .time-range {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .time-range__length {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--space-2);
+    width: 100%;
+    padding-left: 0;
+    padding-top: var(--space-2);
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .time-range__length-value {
+    padding: 0;
+  }
+}

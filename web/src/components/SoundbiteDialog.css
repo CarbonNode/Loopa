@@ -85,9 +85,19 @@
 
 .soundbite__marks {
   display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Pushed to the far end: these set the fields to the left of them, so they
+   read as an action on the cluster rather than a third pair of values. */
+.soundbite__mark-buttons {
+  display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  margin-left: auto;
+  padding-bottom: var(--space-2);
 }
 
 .soundbite__keys {
@@ -109,19 +119,6 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   color: var(--text-secondary);
-}
-
-.soundbite__length {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-  transition: color var(--duration-fast) var(--ease-out);
-}
-
-.soundbite__length.is-over {
-  color: var(--danger);
 }
 
 /* ── Fields ──────────────────────────────────────────────────────────────── */
@@ -248,8 +245,21 @@
     justify-content: center;
   }
 
-  .soundbite__length {
+  /* The mark buttons drop below the cluster and share the width evenly rather
+     than clinging to the right edge of a wrapped row. */
+  .soundbite__mark-buttons {
     margin-left: 0;
     width: 100%;
+    padding-bottom: 0;
+  }
+
+  .soundbite__mark-buttons .btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  .time-range {
+    width: 100%;
+    justify-content: space-between;
   }
 }
